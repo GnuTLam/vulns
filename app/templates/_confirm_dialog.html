@@ -1,0 +1,11 @@
+{# Confirmation for destructive actions; app.js opens it for forms with data-confirm. #}
+<dialog class="confirm-dialog" id="confirm-dialog">
+  <form method="dialog">
+    <h2>{{ tr.continue }}?</h2>
+    <p data-confirm-message></p>
+    <div class="dialog-actions">
+      <button class="button" value="cancel">{{ tr.cancel }}</button>
+      <button class="button danger solid" value="confirm">{{ tr.continue }}</button>
+    </div>
+  </form>
+</dialog>

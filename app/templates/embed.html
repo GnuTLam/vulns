@@ -1,0 +1,17 @@
+{# Layout without the app shell, used by the editor inside the record drawer. #}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}{{ tr.edit }}{% endblock %} · VulnS</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}?v={{ asset_hash }}">
+    <script defer src="{{ url_for('static', path='/app.js') }}?v={{ asset_hash }}"></script>
+  </head>
+  <body class="embed-body">
+    {% block content %}{% endblock %}
+    {% include "_confirm_dialog.html" %}
+  </body>
+</html>

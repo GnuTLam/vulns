@@ -1,0 +1,211 @@
+{% extends layout %}
+{% block title %}{{ tr.edit if entry else tr.new_vulnerability }}{% endblock %}
+{% block content %}
+  {% set has_advanced = entry and (entry.remediation or entry.references or entry.research_notes or related_ids) %}
+  <form class="report-editor {{ 'is-editing' if entry else 'is-creating' }}"
+        method="post"
+        enctype="multipart/form-data"
+        action="{{ form_action }}"
+        data-markdown-form
+        data-unsaved="{{ tr.unsaved }}"
+        data-ready="{{ tr.ready }}"
+        data-rendering="{{ tr.rendering_preview }}"
+        data-preview-failed="{{ tr.preview_failed }}"
+        data-session-expired="{{ tr.preview_session_expired }}"
+        data-confirm-template="{{ tr.confirm_apply_template }}"
+        data-ready-to-upload="{{ tr.ready_to_upload }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+    {% if entry and entry.is_draft and not embed %}
+      <p class="draft-notice" role="status">{{ tr.imported_draft_notice }}</p>
+    {% endif %}
+    <header class="editor-commandbar">
+      {% if not embed %}
+        <div>
+          <a class="back-link" href="{{ editor_back_url }}">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 8H3.5M7 4 3 8l4 4" />
+            </svg>{{ tr.back }}</a><strong>{{ entry.title if entry else tr.new_vulnerability }}</strong>
+        </div>
+      {% endif %}
+      <span class="editor-status" data-editor-status>{{ tr.ready }}</span>
+      <a class="text-action editor-evidence-link" href="#editor-evidence">{{ tr.attachments }}</a>
+      {% if not embed %}<a class="button" href="{{ editor_back_url }}">{{ tr.cancel }}</a>{% endif %}
+      <button class="button primary" type="submit" title="Ctrl+S">{{ tr.save }}</button>
+    </header>
+
+    <div class="report-layout">
+      <aside class="report-metadata">
+        <div class="metadata-heading">
+          <h2>{{ tr.properties }}</h2>
+        </div>
+        <div class="field-block">
+          <label for="report-template">{{ tr.report_template }}</label>
+          <div class="template-control">
+            <select id="report-template" data-report-template>
+              <option value="web">Web vulnerability</option>
+              <option value="api">API vulnerability</option>
+              <option value="mobile">Mobile vulnerability</option>
+              <option value="blank">Blank report</option>
+            </select><button type="button" class="text-action" data-apply-template>{{ tr.apply_template }}</button>
+          </div>
+        </div>
+
+        <details class="metadata-group" open>
+          <summary class="metadata-group-heading"><span class="section-label">{{ tr.reusable_knowledge }}</span><small>{{ tr.knowledge_intro }}</small></summary>
+          <div class="field-block">
+            <label for="title">{{ tr.title }}</label>
+            <input id="title" name="title" value="{{ entry.title if entry else '' }}" required maxlength="240" autofocus placeholder="{{ tr.title_placeholder }}">
+          </div>
+          <div class="metadata-grid">
+            <div class="field-block">
+              <label for="bug-type">{{ tr.bug_type }}</label>
+              <select id="bug-type" name="bug_type" required>
+                {% for item in bug_types %}
+                  <option value="{{ item }}" {{ 'selected' if entry and entry.bug_type == item }}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field-block">
+              <label for="severity">{{ tr.severity }}</label>
+              <select id="severity" name="default_severity" required>
+                {% for item in severities %}
+                  <option value="{{ item }}" {{ 'selected' if (entry.default_severity if entry else 'medium') == item }}>{{ humanize(item) }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="field-block">
+            <label for="tags">{{ tr.tags }}</label>
+            <input id="tags" name="tags" value="{{ entry.tag_names|join(', ') if entry else '' }}" list="tag-options" autocomplete="off" placeholder="{{ tr.tags_placeholder }}" data-tag-input data-max-tags="{{ max_tags }}" data-max-length="{{ tag_max_length }}" data-remove-label="{{ tr.remove_tag }}">
+            <datalist id="tag-options">
+              {% for name in tag_options %}
+                <option value="{{ name }}"></option>
+              {% endfor %}
+            </datalist>
+            <small class="field-hint">{{ tr.tags_hint }}</small>
+          </div>
+          <div class="field-block">
+            <label for="endpoint">{{ tr.endpoint }}</label>
+            <input id="endpoint" name="endpoint" value="{{ entry.endpoint if entry else '' }}" placeholder="e.g. POST /api/v1/session">
+          </div>
+          <div class="field-block">
+            <label for="technology">{{ tr.technology }}</label>
+            <input id="technology" name="technology" value="{{ entry.technology if entry else '' }}" placeholder="e.g. OAuth 2.0, GraphQL, Spring">
+          </div>
+          <div class="metadata-grid">
+            <div class="field-block">
+              <label for="cwe">{{ tr.cwe }}</label>
+              <input id="cwe" name="cwe" value="{{ entry.cwe if entry else '' }}" placeholder="e.g. CWE-639">
+            </div>
+            <div class="field-block">
+              <label for="cvss">{{ tr.cvss }}</label>
+              <input id="cvss" type="number" min="0" max="10" step="0.1" name="cvss_score" value="{{ entry.cvss_score if entry and entry.cvss_score is not none else '' }}" placeholder="0–10">
+            </div>
+          </div>
+          <div class="field-block">
+            <label for="summary">{{ tr.summary }}</label>
+            <textarea id="summary" name="summary" rows="4" maxlength="1200" placeholder="{{ tr.summary_placeholder }}">{{ entry.summary if entry else '' }}</textarea>
+          </div>
+          <div class="field-block">
+            <input type="hidden" name="use_for_ai" value="0">
+            <label class="check-row">
+              <input type="checkbox" name="use_for_ai" value="1" {{ 'checked' if not entry or entry.use_for_ai }}>
+              <span>{{ tr.use_for_ai }}</span>
+            </label>
+            <small class="field-hint">{{ tr.use_for_ai_help }}</small>
+          </div>
+        </details>
+
+        <details class="advanced-fields" {{ 'open' if has_advanced }}>
+          <summary>{{ tr.knowledge }}</summary>
+          <div class="field-block">
+            <label for="research-notes">{{ tr.research_notes }}</label>
+            <textarea id="research-notes" name="research_notes" rows="5" placeholder="Private methodology, root-cause, payload, and retest lessons…">{{ entry.research_notes if entry else '' }}</textarea>
+          </div>
+          <div class="field-block">
+            <label for="remediation">{{ tr.remediation }}</label>
+            <textarea id="remediation" name="remediation" rows="4" placeholder="Recommended fix and retest notes…">{{ entry.remediation if entry else '' }}</textarea>
+          </div>
+          <div class="field-block">
+            <label for="references">{{ tr.references }}</label>
+            <textarea id="references" name="references" rows="3" placeholder="One reference per line…">{{ entry.references if entry else '' }}</textarea>
+          </div>
+          {% if relation_entries %}
+            <div class="field-block relate-block"
+                 data-relate
+                 data-current-id="{{ entry.id if entry else '' }}"
+                 data-label-accept="{{ tr.relate_accept }}"
+                 data-label-dismiss="{{ tr.relate_dismiss }}"
+                 data-label-none="{{ tr.relate_none }}"
+                 data-reason-cwe="{{ tr.relate_reason_cwe }}"
+                 data-reason-bug_technology="{{ tr.relate_reason_bug_technology }}"
+                 data-reason-tag="{{ tr.relate_reason_tag }}"
+                 data-reason-fts="{{ tr.relate_reason_fts }}">
+              <label>{{ tr.relate_suggestions }}</label>
+              <small>{{ tr.relate_help }}</small>
+              <div class="relate-chips" data-relate-chips><p class="relate-empty">{{ tr.relate_none }}</p></div>
+              <details class="relate-fallback">
+                <summary>{{ tr.relate_more }}</summary>
+                <select id="related-ids" name="related_ids" multiple size="5" data-relate-select>
+                  {% for item in relation_entries %}
+                    <option value="{{ item.id }}" {{ 'selected' if item.id in related_ids }}>{{ item.title }}</option>
+                  {% endfor %}
+                </select><small>Ctrl / Cmd to select multiple</small>
+              </details>
+            </div>
+          {% endif %}
+        </details>
+      </aside>
+
+      <section class="report-workspace">
+        <header class="report-heading">
+          <div>
+            <h2>{{ tr.vulnerability_report }}</h2>
+          </div>
+          <span>Markdown · Ctrl+Enter {{ tr.preview }}</span>
+        </header>
+        <div class="editor-tabs">
+          <button type="button" class="editor-tab active" data-editor-tab="write">{{ tr.write }}</button><button type="button" class="editor-tab" data-editor-tab="preview">{{ tr.preview }}</button>
+        </div>
+        <div class="editor-pane active" data-editor-pane="write">
+          <textarea class="markdown-input" name="markdown" data-markdown-input spellcheck="true" aria-label="{{ tr.vulnerability_report }}">{{ entry.markdown if entry else starter }}</textarea>
+        </div>
+        <div class="editor-pane markdown-body" data-editor-pane="preview">
+          <div class="preview-placeholder">{{ tr.preview }}</div>
+        </div>
+        <section class="attachment-manager" id="editor-evidence">
+          <div class="attachment-heading">
+            <div>
+              <h3>{{ tr.attachments }}</h3>
+            </div>
+            <span>{{ tr.evidence_types }}</span>
+          </div>
+          <label class="drop-zone" data-drop-zone>
+            <strong>{{ tr.drop_files }}</strong><span>{{ tr.browse_files }} · max configured size per file</span><input type="file" name="uploads" multiple data-file-input>
+          </label>
+          <div class="pending-files" data-pending-files></div>
+          {% if entry and entry.evidence %}
+            <div class="attached-files">
+              {% for item in entry.evidence %}
+                {% set is_image = item.mime_type.startswith("image/") and item.mime_type != "image/svg+xml" %}
+                <article class="attached-file">
+                  {% if is_image %}
+                    <img src="/evidence/{{ item.id }}" alt="">
+                  {% elif item.mime_type.startswith("video/") %}
+                    <video preload="metadata"><source src="/evidence/{{ item.id }}" type="{{ item.mime_type }}"></video>
+                  {% else %}
+                    <div class="file-type">{{ item.filename.rsplit('.', 1)[-1][:4]|upper }}</div>
+                  {% endif %}
+                  <div><strong>{{ item.filename }}</strong><small>{{ (item.size_bytes / 1024)|round(1) }} KB</small></div>
+                  {% if is_image %}
+                    <button type="button" class="text-action" data-insert-evidence data-url="/evidence/{{ item.id }}" data-name="{{ item.filename }}">{{ tr.insert }}</button>
+                  {% endif %}
+                </article>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </section>
+      </section>
+    </div>
+  </form>
+{% endblock %}

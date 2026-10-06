@@ -1,0 +1,49 @@
+{# Fragments shared by several pages. Import with: {% import "_macros.html" as ui with context %} #}
+
+{% macro tag_links(tags) -%}
+  {% for tag in tags %}<a class="tag" href="/knowledge?tag={{ tag.name|urlencode }}">{{ tag.name }}</a>{% endfor %}
+{%- endmacro %}
+
+{% macro query_warnings(warnings, class="") -%}
+  {% if warnings %}
+    <div class="alert danger{{ " " ~ class if class }}">
+      {{- tr.unknown_field }}: {% for item in warnings %}<code>{{ item }}</code>{% if not loop.last %} {% endif %}{% endfor -%}
+    </div>
+  {% endif %}
+{%- endmacro %}
+
+{# Reward and response-time facts of a submission; renders nothing when none are known. #}
+{% macro reward_facts(finding) -%}
+  {% if finding.total_reward is not none %}
+    <div>
+      <p class="k">{{ tr.total_reward }}</p>
+      <p class="v num">{{ '%g'|format(finding.total_reward) }} <small>{{ finding.currency }}</small></p>
+    </div>
+  {% endif %}
+  {% for label, days in [(tr.days_to_triage, finding.days_to_triage), (tr.days_to_reward, finding.days_to_reward), (tr.days_to_resolve, finding.days_to_resolve)] %}
+    {% if days is not none %}
+      <div>
+        <p class="k">{{ label }}</p>
+        <p class="v num">{{ days }}</p>
+      </div>
+    {% endif %}
+  {% endfor %}
+{%- endmacro %}
+
+{% macro rediscover_panel(items, help, query="") -%}
+  <section class="panel">
+    <div class="panel-head">
+      <p class="section-label">{{ tr.rediscover }}</p>
+      <span class="meta">{{ items|length }}</span>
+    </div>
+    <p class="panel-note">{{ help }}</p>
+    <div class="related-list rediscover-list">
+      {% for item in items %}
+        <a class="rediscover-item" href="/knowledge/{{ item.id }}{{ query }}">
+          <span>{{ item.title }}</span>
+          <small>{% for reason in item.reasons %}{{ tr['relate_reason_' + reason] }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+{%- endmacro %}

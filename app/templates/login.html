@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#1769d2">
+    <title>{{ tr.login }} · VulnS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/favicon.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}?v={{ asset_hash }}">
+    {# Applies the saved theme before sign-in. #}
+    <script defer src="{{ url_for('static', path='/app.js') }}?v={{ asset_hash }}"></script>
+  </head>
+  <body class="login-body">
+    <main class="signin">
+      <div class="brand">
+        <span class="brand-mark">V</span>
+        <span class="brand-text"><strong>VulnS</strong></span>
+      </div>
+      {% if error %}<div class="alert danger">{{ error }}</div>{% endif %}
+      <form method="post" action="/login" class="stack">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <label>
+          {{ tr.username }}
+          <input type="text" name="username" autofocus required autocomplete="username" autocapitalize="none" spellcheck="false">
+        </label>
+        <label>
+          {{ tr.password }}
+          <input type="password" name="password" required autocomplete="current-password">
+        </label>
+        <button class="button primary" type="submit">{{ tr.login }}</button>
+      </form>
+    </main>
+  </body>
+</html>

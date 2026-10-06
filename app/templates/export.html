@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.export_for_ai }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs"><a href="/knowledge">{{ tr.knowledge }}</a><i>/</i><strong>{{ tr.export_for_ai }}</strong></div>
+    <div class="toolbar-actions">
+      <a class="button" href="/knowledge/export.zip">{{ tr.download_markdown_zip }}</a>
+      <a class="button primary" href="/knowledge/export.json">{{ tr.download_json }}</a>
+    </div>
+  </div>
+  <div class="workspace">
+    <div class="export-stats">
+      <span><b>{{ included|length }}</b> {{ tr.ai_included|lower }}</span>
+      <span><b>{{ excluded|length }}</b> {{ tr.ai_excluded|lower }}</span>
+      <span><b>{{ drafts|length }}</b> {{ tr.drafts|lower }}</span>
+    </div>
+    <div class="grid-2 section-gap">
+      <section class="panel">
+        <div class="panel-head">
+          <p class="section-label">{{ tr.ai_included }}</p>
+          <span class="meta">{{ included|length }}</span>
+        </div>
+        <p class="panel-note">{{ tr.export_intro }}</p>
+        {% if included %}
+          <div class="linked-list">
+            {% for entry in included %}
+              <a href="/knowledge/{{ entry.id }}">
+                <span>
+                  <strong>{{ entry.title }}</strong>
+                  <small>{{ entry.bug_type }}{% if entry.tags %} · {{ entry.tag_names|join(", ") }}{% endif %}</small>
+                </span>
+              </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="empty-compact">{{ tr.export_empty }}</p>
+        {% endif %}
+      </section>
+      <div class="panel-stack">
+        <section class="panel">
+          <div class="panel-head">
+            <p class="section-label">{{ tr.ai_excluded }}</p>
+            <span class="meta">{{ excluded|length }}</span>
+          </div>
+          {% if excluded %}
+            <div class="linked-list">
+              {% for entry in excluded %}
+                <a href="/knowledge/{{ entry.id }}/edit"><span><strong>{{ entry.title }}</strong><small>{{ entry.bug_type }}</small></span></a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-compact">{{ tr.empty }}</p>
+          {% endif %}
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <p class="section-label">{{ tr.drafts }}</p>
+            <span class="meta">{{ drafts|length }}</span>
+          </div>
+          <p class="panel-note">{{ tr.export_drafts_help }}</p>
+          {% if drafts %}
+            <div class="linked-list">
+              {% for entry in drafts %}
+                <a href="/knowledge/{{ entry.id }}/edit"><span><strong>{{ entry.title }}</strong><small>{{ entry.bug_type }}</small></span></a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-compact">{{ tr.empty }}</p>
+          {% endif %}
+        </section>
+      </div>
+    </div>
+  </div>
+{% endblock %}

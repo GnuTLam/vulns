@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#1769d2">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}{{ tr.app_name }}{% endblock %} · VulnS</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/favicon.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}?v={{ asset_hash }}">
+    <script defer src="{{ url_for('static', path='/app.js') }}?v={{ asset_hash }}"></script>
+  </head>
+  <body>
+    <div class="app-shell {{ 'has-explorer' if explorer_programs is defined }}">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="/">
+          <span class="brand-mark">V</span>
+          <span class="brand-text"><strong>VulnS</strong></span>
+        </a>
+        <div class="side-search">
+          <form method="get" action="/search">
+            <label>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M10.5 10.5 14 14" />
+              </svg>
+              <input type="search" name="q" placeholder="{{ tr.quick_search }}" autocomplete="off" data-palette-open>
+              <kbd>Ctrl K</kbd>
+            </label>
+          </form>
+        </div>
+        <div class="nav-scroll">
+          <nav class="nav-group" aria-label="Primary">
+            <a class="nav-item {{ 'active' if active == 'dashboard' }}" href="/">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 6.5 8 2l6 4.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />
+              </svg>{{ tr.dashboard }}
+            </a>
+          </nav>
+          <div class="nav-group">
+            <p class="nav-label">{{ tr.nav_observe }}</p>
+            <a class="nav-item {{ 'active' if active == 'search' }}" href="/search">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M10.5 10.5 14 14" />
+              </svg>{{ tr.lookup }}
+            </a>
+            <a class="nav-item {{ 'active' if active == 'findings' }}" href="/findings">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M8 2.5 13.5 5v4c0 3-2.4 4.6-5.5 5.5C4.9 13.6 2.5 12 2.5 9V5z" />
+                <path d="M6 8l1.6 1.6L10.5 6.8" />
+              </svg>{{ tr.findings }}
+            </a>
+            <a class="nav-item {{ 'active' if active == 'knowledge' }}" href="/knowledge">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 3.5h4.2a1.8 1.8 0 0 1 1.8 1.8V14a1.5 1.5 0 0 0-1.5-1.5H3z" />
+                <path d="M13 3.5H8.8A1.8 1.8 0 0 0 7 5.3V14a1.5 1.5 0 0 1 1.5-1.5H13z" />
+              </svg>{{ tr.knowledge }}
+            </a>
+          </div>
+          <div class="nav-group">
+            <p class="nav-label">{{ tr.nav_build }}</p>
+            <a class="nav-item {{ 'active' if active == 'programs' }}" href="/programs">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.2l1.3 1.7h5.5A1.5 1.5 0 0 1 14 6.2v5.3A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" />
+              </svg>{{ tr.programs }}
+            </a>
+            <a class="nav-item {{ 'active' if active == 'capture' }}" href="/capture">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 1.8 4 9h3.2l-.8 5.2L12 7H8.6z" />
+              </svg>{{ tr.quick_capture }}
+            </a>
+          </div>
+        </div>
+        <div class="sidebar-footer">
+          <button class="text-action theme-toggle" type="button" data-theme-toggle data-label-dark="{{ tr.theme_dark }}" data-label-light="{{ tr.theme_light }}"><span data-theme-label>{{ tr.theme_dark }}</span></button>
+          <form method="post" action="/logout">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <button class="text-action" type="submit">{{ tr.logout }}</button>
+          </form>
+        </div>
+      </aside>
+
+      {% if explorer_programs is defined %}
+        <aside class="program-explorer" id="program-explorer">
+          <header class="explorer-header">
+            <div><span>{{ tr.explorer|upper }}</span><strong>{{ tr.programs }}</strong></div>
+            <a href="/programs/new" aria-label="{{ tr.new_program }}" title="{{ tr.new_program }}">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                <path d="M8 3.5v9M3.5 8h9" />
+              </svg>
+            </a>
+          </header>
+          <label class="explorer-search">
+            <input type="search" placeholder="{{ tr.search }} {{ tr.programs|lower }}…" data-explorer-search>
+          </label>
+          <nav class="explorer-tree">
+            {% for program in explorer_programs %}
+              {% set is_current = explorer_current_program == program.id %}
+              <details class="explorer-program {{ 'selected' if is_current }} {{ 'archived' if program.archived }}"
+                       data-program-node
+                       data-program-name="{{ program.name|lower }}"
+                       {% if is_current %}open{% endif %}>
+                <summary>
+                  <span class="chevron">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 3.5 10.5 8 6 12.5" />
+                    </svg>
+                  </span>
+                  <a href="/programs/{{ program.id }}">{{ program.name }}</a>
+                  <small>{{ program.findings|length }}</small>
+                </summary>
+                <div class="explorer-findings">
+                  {% for finding in program.findings|sort(attribute="updated_at", reverse=true) %}
+                    {% set is_selected = explorer_current_finding == finding.id
+                       or (not explorer_current_finding and is_current and explorer_current_knowledge == finding.knowledge_id) %}
+                    <a class="explorer-finding {{ 'selected' if is_selected }}"
+                       href="{{ finding.url }}"
+                       data-finding-name="{{ finding.knowledge.title|lower }}">
+                      <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
+                      <span><strong>{{ finding.knowledge.title }}</strong><small>{{ humanize(finding.status) }}</small></span>
+                    </a>
+                  {% else %}
+                    <p class="explorer-empty">{{ tr.empty }}</p>
+                  {% endfor %}
+                  {% if not program.archived %}
+                    <a class="explorer-add" href="/knowledge/new?program_id={{ program.id }}">
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                        <path d="M8 3.5v9M3.5 8h9" />
+                      </svg>{{ tr.new_vulnerability }}
+                    </a>
+                  {% endif %}
+                </div>
+              </details>
+            {% else %}
+              <div class="explorer-zero">
+                <p>{{ tr.empty }}</p>
+                <a href="/programs/new">{{ tr.new_program }}</a>
+              </div>
+            {% endfor %}
+          </nav>
+        </aside>
+      {% endif %}
+
+      <main class="main-area">
+        {% set top_actions = active in ("dashboard", "search") %}
+        <header class="topbar{{ '' if top_actions else ' topbar-nav-only' }}">
+          <button class="menu-button" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
+            </svg>
+            <span class="btn-label">{{ tr.menu }}</span>
+          </button>
+          {% if explorer_programs is defined %}
+            <button class="menu-button" type="button" data-explorer-toggle aria-controls="program-explorer" aria-expanded="false">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.2l1.3 1.7h5.5A1.5 1.5 0 0 1 14 6.2v5.3A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" />
+              </svg>
+              <span class="btn-label">{{ tr.programs }}</span>
+            </button>
+          {% endif %}
+          {% if top_actions %}
+            <div class="top-actions">
+              <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+            </div>
+          {% endif %}
+        </header>
+        <div class="page-wrap">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+
+    <div class="mobile-overlay"></div>
+    <div class="drawer" id="record-drawer" hidden>
+      <div class="drawer-backdrop" data-drawer-close></div>
+      <aside class="drawer-panel" role="dialog" aria-modal="true" aria-label="{{ tr.findings }}">
+        <div class="drawer-body" data-drawer-body></div>
+        <div class="drawer-loading" data-drawer-loading>…</div>
+      </aside>
+    </div>
+    <div class="palette" id="palette" hidden>
+      <div class="palette-backdrop" data-palette-close></div>
+      <div class="palette-panel" role="dialog" aria-modal="true" aria-label="{{ tr.lookup }}">
+        <div class="palette-input">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5 14 14" />
+          </svg>
+          <input type="search" placeholder="{{ tr.lookup_placeholder }}" autocomplete="off" spellcheck="false" data-palette-input aria-controls="palette-results">
+          <kbd>Esc</kbd>
+        </div>
+        <div class="palette-results" id="palette-results" role="listbox" data-palette-results></div>
+        <div class="palette-foot">
+          <span data-palette-status data-unknown-label="{{ tr.unknown_field }}">{{ tr.lookup_empty }}</span>
+          <a href="/search" data-palette-all>{{ tr.syntax_help }}</a>
+        </div>
+      </div>
+    </div>
+    {% include "_confirm_dialog.html" %}
+  </body>
+</html>

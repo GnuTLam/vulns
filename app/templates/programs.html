@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.programs }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs"><strong>{{ tr.programs }}</strong><code>{{ programs|length }}</code></div>
+    <div class="toolbar-actions">
+      <a class="button primary" href="/programs/new">{{ tr.new_program }}</a>
+    </div>
+  </div>
+  <div class="workspace">
+    <section class="panel">
+      {% if programs %}
+        <div class="table-wrap">
+          <table class="registry-table">
+            <thead>
+              <tr>
+                <th class="num-head">#</th>
+                <th>{{ tr.name }}</th>
+                <th>{{ tr.platform }}</th>
+                <th>{{ tr.handle }}</th>
+                <th>{{ tr.findings }}</th>
+                <th>{{ tr.accepted }}</th>
+                <th>{{ tr.updated }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for program in programs %}
+                <tr class="{{ 'is-archived' if program.archived }}" data-row-href="/programs/{{ program.id }}">
+                  <td class="num-cell">{{ loop.index }}</td>
+                  <td>
+                    <a class="strong-link" href="/programs/{{ program.id }}">{{ program.name }}</a>
+                    {%- if program.archived %}<small>{{ tr.archived }}</small>{% endif %}
+                  </td>
+                  <td>{{ program.platform or 'Independent' }}</td>
+                  <td class="mono-cell">{{ program.handle or '—' }}</td>
+                  <td><strong>{{ program.findings|length }}</strong></td>
+                  <td><strong>{{ program.findings|selectattr('status', 'equalto', 'accepted')|list|length }}</strong></td>
+                  <td class="mono-cell">{{ program.updated_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h2>{{ tr.empty }}</h2>
+          <p>{{ tr.programs_intro }}</p>
+          <div class="empty-actions">
+            <a class="button primary" href="/programs/new">{{ tr.new_program }}</a>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

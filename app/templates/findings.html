@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ tr.vulnerability_registry }}{% endblock %}
+{% block content %}
+  {% set filtered = q or selected_status or selected_severity or selected_program %}
+  <div class="toolbar">
+    <div class="crumbs"><strong>{{ tr.vulnerability_registry }}</strong><code>{{ result_total }} {{ tr.results }}</code></div>
+    <div class="toolbar-actions">
+      <a class="button primary" href="/findings/new">{{ tr.new_finding }}</a>
+    </div>
+  </div>
+  <div class="workspace findings-workspace">
+    <section class="registry-metrics" aria-label="{{ tr.registry_summary }}">
+      {% for key, label in [("total", tr.total_vulnerabilities), ("submitted", tr.submitted_reports), ("accepted", tr.accepted_reports), ("rewarded", tr.rewarded_reports)] %}
+        <div data-metric="{{ key }}"><span>{{ label }}</span><strong>{{ finding_metrics[key] }}</strong></div>
+      {% endfor %}
+    </section>
+    <section class="panel">
+      <div class="severity-overview">
+        <div class="severity-chart"
+             style="background:conic-gradient({{ severity_chart }})"
+             aria-label="{{ tr.severity_mix }}: {{ finding_metrics['total'] }} {{ tr.findings|lower }}">
+          <div><strong>{{ finding_metrics['total'] }}</strong><span>{{ tr.total }}</span></div>
+        </div>
+        <div class="severity-legend">
+          {% for item in severities|reverse %}
+            <span>
+              <span class="severity {{ item }}">{{ humanize(item) }}</span>
+              <small>{{ humanize(item) }}</small>
+              <b>{{ severity_counts[item] }}</b>
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+      <form class="finding-controls" method="get" data-auto-filter>
+        <div class="severity-chips" role="radiogroup" aria-label="{{ tr.severity }}">
+          <label class="severity-chip {{ 'active' if not selected_severity }}">
+            <input class="visually-hidden" type="radio" name="severity" value="" {{ 'checked' if not selected_severity }}>
+            <span>{{ tr.all }}</span>
+            <b>{{ finding_metrics['total'] }}</b>
+          </label>
+          {% for item in severities|reverse %}
+            <label class="severity-chip {{ item }} {{ 'active' if selected_severity == item }}">
+              <input class="visually-hidden" type="radio" name="severity" value="{{ item }}" {{ 'checked' if selected_severity == item }}>
+              <span class="severity {{ item }}">{{ humanize(item) }}</span>
+              <span>{{ humanize(item) }}</span>
+              <b>{{ severity_counts[item] }}</b>
+            </label>
+          {% endfor %}
+        </div>
+        <div class="finding-filter-fields">
+          <label class="search-field">
+            <input type="search" name="q" value="{{ q }}" placeholder="{{ tr.filter_vulnerabilities }}">
+          </label>
+          <select name="status" aria-label="{{ tr.status }}">
+            <option value="">{{ tr.all_statuses }}</option>
+            {% for item in statuses %}
+              <option value="{{ item }}" {{ 'selected' if selected_status == item }}>{{ humanize(item) }}</option>
+            {% endfor %}
+          </select>
+          <select name="program_id" aria-label="{{ tr.program }}">
+            <option value="">{{ tr.all }} {{ tr.programs|lower }}</option>
+            {% for item in programs %}
+              <option value="{{ item.id }}" {{ 'selected' if selected_program == item.id }}>{{ item.name }}</option>
+            {% endfor %}
+          </select>
+          <button class="button" type="submit">{{ tr.filter }}</button>
+          {% if filtered %}<a class="text-action" href="/findings">{{ tr['clear'] }}</a>{% endif %}
+        </div>
+      </form>
+    </section>
+    {{ ui.query_warnings(query_warnings) }}
+    <section class="panel findings-table-panel">
+      <div class="panel-head">
+        <p class="section-label">{{ tr.findings }}</p>
+        <span class="meta">{{ result_total }} {{ tr.results }}</span>
+      </div>
+      {% if findings %}
+        <div class="table-wrap">
+          <table class="registry-table findings-table">
+            <thead>
+              <tr>
+                <th class="num-head">#</th>
+                <th>{{ tr.title }}</th>
+                <th>{{ tr.program }}</th>
+                <th>{{ tr.target }}</th>
+                <th>{{ tr.severity }}</th>
+                <th>{{ tr.status }}</th>
+                <th>{{ tr.updated }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for finding in findings %}
+                <tr data-record-panel="{{ finding.panel_url }}">
+                  <td class="num-cell sev-{{ finding.severity }}">{{ loop.index }}</td>
+                  <td>
+                    <a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
+                    <small>
+                      {{- finding.knowledge.bug_type }}
+                      {%- if finding.knowledge.cwe %} · {{ finding.knowledge.cwe }}{% endif %}
+                      {%- if finding.report_id %} · {{ finding.report_id }}{% endif %}
+                      {%- if finding.report_url %} · <a href="{{ finding.report_url }}" target="_blank" rel="noreferrer noopener">{{ tr.open_submission }}</a>{% endif -%}
+                    </small>
+                  </td>
+                  <td><a href="/programs/{{ finding.program.id }}">{{ finding.program.name }}</a></td>
+                  <td class="mono-cell">{{ finding.target or finding.scope or '—' }}</td>
+                  <td><span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span></td>
+                  <td><span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span></td>
+                  <td class="mono-cell">{{ finding.updated_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h2>{{ tr.no_search_results if filtered else tr.empty }}</h2>
+          {% if not filtered %}
+            <p>{{ tr.first_steps_help }}</p>
+            <div class="empty-actions">
+              <a class="button primary" href="/findings/new">{{ tr.new_finding }}</a>
+              <a class="button" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+              <a class="button" href="/programs/new">{{ tr.new_program }}</a>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

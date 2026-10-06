@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ tr.lookup }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs">
+      <strong>{{ tr.lookup }}</strong>
+      {%- if searched %}<code>{{ results.total }} {{ tr.results }}</code>{% endif %}
+    </div>
+  </div>
+  <div class="workspace">
+    <form class="lookup-form" method="get" action="/search">
+      <div class="lookup-field">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="7" cy="7" r="4.5" />
+          <path d="M10.5 10.5 14 14" />
+        </svg>
+        <input type="search" name="q" value="{{ q }}" placeholder="{{ tr.lookup_placeholder }}" autocomplete="off" spellcheck="false" autofocus data-global-search>
+        <button class="button primary" type="submit">{{ tr.search }}</button>
+      </div>
+      <div class="lookup-kinds" role="group" aria-label="{{ tr.everything }}">
+        <a class="kind-tab {{ 'active' if not selected_kind }}" href="/search?q={{ q|urlencode }}">{{ tr.everything }}</a>
+        {% for kind, label in [("knowledge", tr.knowledge), ("finding", tr.findings), ("program", tr.programs)] %}
+          <a class="kind-tab {{ 'active' if selected_kind == kind }}" href="/search?kind={{ kind }}&q={{ q|urlencode }}">{{ label }}</a>
+        {% endfor %}
+      </div>
+    </form>
+    <div class="lookup-presets">
+      <span class="preset-label">{{ tr.quick_filters }}</span>
+      {% for key, expression in saved_filters %}
+        <a class="preset-chip" href="/search?q={{ expression|urlencode }}" title="{{ expression }}">{{ tr[key] }}</a>
+      {% endfor %}
+    </div>
+    {{ ui.query_warnings(warnings, "lookup-alert") }}
+    {% if searched and chips %}
+      <div class="lookup-chips">
+        <span class="preset-label">{{ tr.understood_as }}</span>
+        {% for chip in chips %}<code>{{ chip }}</code>{% endfor %}
+      </div>
+    {% endif %}
+    {% if searched and results.total == 0 %}
+      <div class="empty-state">
+        <h2>{{ tr.no_lookup_results }}</h2>
+        <p>{{ tr.lookup_empty }}</p>
+      </div>
+    {% elif searched %}
+      {% if results.knowledge %}
+        <section class="panel">
+          <div class="panel-head">
+            <p class="section-label">{{ tr.knowledge }}</p>
+            <span class="meta">{{ tr.showing_of|format(shown=results.knowledge|length, total=results.knowledge_total) }}</span>
+          </div>
+          <div class="hit-list">
+            {% for item in results.knowledge %}
+              <a class="hit" href="{{ item.url }}">
+                <div class="hit-main">
+                  <strong>{{ item.title }}</strong>
+                  {% if item.snippet %}<p class="hit-snippet">{{ item.snippet }}</p>{% endif %}
+                </div>
+                <div class="hit-meta">
+                  <span class="severity {{ item.severity }}">{{ humanize(item.severity) }}</span>
+                  {% if item.is_draft %}<span class="draft-badge">{{ tr.draft_badge }}</span>{% endif %}
+                  <small>
+                    {{- item.bug_type }}
+                    {%- if item.cwe %} · {{ item.cwe }}{% endif %}
+                    {%- if item.cvss %} · CVSS {{ item.cvss }}{% endif -%}
+                  </small>
+                  <small>{{ item.programs|join(" · ") if item.programs else tr.reusable_orphans }}</small>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+      {% if results.findings %}
+        <section class="panel">
+          <div class="panel-head">
+            <p class="section-label">{{ tr.findings }}</p>
+            <span class="meta">{{ tr.showing_of|format(shown=results.findings|length, total=results.findings_total) }}</span>
+          </div>
+          <div class="hit-list">
+            {% for item in results.findings %}
+              <a class="hit" href="{{ item.url }}">
+                <div class="hit-main">
+                  <strong>{{ item.title }}</strong>
+                  {% if item.snippet %}<p class="hit-snippet">{{ item.snippet }}</p>{% endif %}
+                </div>
+                <div class="hit-meta">
+                  <span class="status {{ item.status }}">{{ humanize(item.status) }}</span>
+                  <span class="severity {{ item.severity }}">{{ humanize(item.severity) }}</span>
+                  <small>{{ item.program }}</small>
+                  <small>{{ item.report_id or item.target }}</small>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+      {% if results.programs %}
+        <section class="panel">
+          <div class="panel-head">
+            <p class="section-label">{{ tr.programs }}</p>
+            <span class="meta">{{ tr.showing_of|format(shown=results.programs|length, total=results.programs_total) }}</span>
+          </div>
+          <div class="hit-list">
+            {% for item in results.programs %}
+              <a class="hit" href="{{ item.url }}">
+                <div class="hit-main">
+                  <strong>{{ item.title }}</strong>
+                  {% if item.snippet %}<p class="hit-snippet">{{ item.snippet }}</p>{% endif %}
+                </div>
+                <div class="hit-meta">
+                  {% if item.archived %}<span class="status archived">{{ tr.archived }}</span>{% endif %}
+                  <small>{{ item.platform }}{% if item.handle %} · {{ item.handle }}{% endif %}</small>
+                  <small>{{ item.finding_count }} {{ tr.findings|lower }}</small>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+    {% endif %}
+    <details class="panel syntax-panel">
+      <summary>{{ tr.syntax_help }}</summary>
+      <div class="syntax-grid">
+        <div><code>oauth redirect</code><span>{{ tr.search }} (AND)</span></div>
+        <div><code>"open redirect"</code><span>{{ tr.exact_phrase }}</span></div>
+        <div><code>-csrf</code><span>{{ tr.exclude_term }}</span></div>
+        <div><code>sev:critical</code><span>{{ tr.severity }}</span></div>
+        <div><code>status:accepted</code><span>{{ tr.status }}</span></div>
+        <div><code>type:xss</code><span>{{ tr.bug_type }}</span></div>
+        <div><code>cwe:352</code><span>{{ tr.cwe }}</span></div>
+        <div><code>tech:graphql</code><span>{{ tr.technology }}</span></div>
+        <div><code>program:acme</code><span>{{ tr.program }}</span></div>
+        <div><code>cvss:&gt;=8</code><span>{{ tr.cvss }} — {{ tr.threshold }}</span></div>
+        <div><code>payout:&gt;500</code><span>{{ tr.total_reward }} — {{ tr.threshold }}</span></div>
+        <div><code>currency:VND</code><span>{{ tr.currency }}</span></div>
+        <div><code>after:2026-01-01</code><span>{{ tr.updated_after }}</span></div>
+        <div><code>is:draft</code><span>{{ tr.lifecycle_state }} — {{ is_values|join(", ") }}</span></div>
+        <div><code>has:poc</code><span>{{ tr.attribute_present }} — {{ has_values|join(", ") }}</span></div>
+        <div><code>kind:program</code><span>{{ tr.restrict_kind }}</span></div>
+      </div>
+    </details>
+  </div>
+{% endblock %}

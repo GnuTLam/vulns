@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.dashboard }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs"><strong>{{ tr.dashboard }}</strong></div>
+  </div>
+  <div class="workspace">
+    {% if is_new_workspace %}
+      <section class="panel onboarding">
+        <h2>{{ tr.first_steps }}</h2>
+        <p>{{ tr.first_steps_help }}</p>
+        <div class="empty-actions">
+          <a class="button" href="/programs/new">{{ tr.new_program }}</a>
+          <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+        </div>
+        <a class="onboarding-alt" href="/knowledge/import">{{ tr.or_import_markdown }}</a>
+      </section>
+    {% else %}
+      <section class="dashboard-metrics" aria-label="{{ tr.registry_summary }}">
+        {% for metric, href, label, value in [
+          ("open", "/findings?q=is%3Aopen", tr.open_vulnerabilities, open_count),
+          ("accepted", "/findings?status=accepted", tr.accepted_or_later, accepted_count),
+          ("vulnerabilities", "/findings", tr.total_vulnerabilities, finding_total),
+          ("rewarded", "/findings?q=has%3Areward", tr.rewarded, metrics.rewarded_count),
+          ("knowledge", "/knowledge", tr.total_knowledge, knowledge_count),
+          ("programs", "/programs", tr.active_programs, program_count),
+        ] %}
+          <a href="{{ href }}" data-dashboard-metric="{{ metric }}">
+            <span>{{ label }}</span>
+            <strong>{{ value }}</strong>
+          </a>
+        {% endfor %}
+      </section>
+
+      {% macro queue_group(label, count, shown, query) %}
+        <div class="queue-group">
+          <span>{{ label }}</span>
+          <b>{{ count }}</b>
+          {% if count > shown %}<a href="/search?q={{ query|urlencode }}">{{ tr.view_all }}</a>{% endif %}
+        </div>
+      {% endmacro %}
+
+      {% macro queue_age(days, hint) %}
+        {% if days is not none %}
+          <span class="queue-age {{ 'stale' if days > 30 }}" title="{{ days }} {{ hint }}">{{ days }}{{ tr.day_short }}</span>
+        {% else %}
+          <span class="queue-age is-empty">–</span>
+        {% endif %}
+      {% endmacro %}
+
+      <section class="panel queue-panel">
+        <div class="panel-head">
+          <h2 class="section-label">{{ tr.needs_attention }}</h2>
+          <span class="meta">{{ attention_total }} {{ tr['item'] if attention_total == 1 else tr['items'] }}</span>
+        </div>
+        {% if attention_total %}
+          <div class="queue">
+            {% if awaiting %}
+              {{ queue_group(tr.waiting_on_program, attention_groups.awaiting, awaiting|length, saved_filter_queries.awaiting_response) }}
+              {% for finding in awaiting %}
+                <a class="queue-row" href="{{ finding.url }}">
+                  <span class="queue-main">
+                    <strong>{{ finding.knowledge.title }}</strong>
+                    <small>
+                      {{- finding.program.name }}
+                      {%- if finding.report_id %} · {{ finding.report_id }}{% endif %}
+                      {%- if finding.status == "triaged" %} · {{ humanize(finding.status) }}{% endif -%}
+                    </small>
+                  </span>
+                  <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
+                  {% if finding.days_waiting is not none %}
+                    {{ queue_age(finding.days_waiting, tr.waiting_since_submission) }}
+                  {% else %}
+                    {{ queue_age(finding.days_awaiting_reward, tr.waiting_since_triage) }}
+                  {% endif %}
+                </a>
+              {% endfor %}
+            {% endif %}
+            {% if unpaid %}
+              {{ queue_group(tr.unpaid_accepted, attention_groups.unpaid, unpaid|length, saved_filter_queries.unpaid_accepted) }}
+              {% for finding in unpaid %}
+                <a class="queue-row" href="/findings/{{ finding.id }}/edit">
+                  <span class="queue-main">
+                    <strong>{{ finding.knowledge.title }}</strong>
+                    <small>
+                      {{- finding.program.name }}
+                      {%- if finding.report_id %} · {{ finding.report_id }}{% endif -%}
+                    </small>
+                  </span>
+                  <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
+                  {{ queue_age(finding.days_awaiting_reward, tr.waiting_since_triage) }}
+                </a>
+              {% endfor %}
+            {% endif %}
+            {% if drafts %}
+              {{ queue_group(tr.drafts_to_finish, attention_groups.drafts, drafts|length, saved_filter_queries.needs_triage) }}
+              {% for entry in drafts %}
+                <a class="queue-row" href="/knowledge/{{ entry.id }}/edit">
+                  <span class="queue-main">
+                    <strong>{{ entry.title }}</strong>
+                    <small>{{ entry.summary|truncate(70) if entry.summary else entry.bug_type }}</small>
+                  </span>
+                  <span class="severity {{ entry.default_severity }}">{{ humanize(entry.default_severity) }}</span>
+                  <span class="queue-age" title="{{ tr.updated }} {{ entry.updated_at.strftime('%Y-%m-%d') }}">
+                    {{- entry.updated_at.strftime("%b %d") -}}
+                  </span>
+                </a>
+              {% endfor %}
+            {% endif %}
+          </div>
+        {% else %}
+          <p class="empty-compact">{{ tr.nothing_waiting }}</p>
+        {% endif %}
+      </section>
+
+      <div class="grid-2 home-lower">
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="section-label">{{ tr.recent_findings }}</h2>
+            {% if recent_findings %}<a class="meta" href="/findings">{{ tr.view_all }}</a>{% endif %}
+          </div>
+          {% if recent_findings %}
+            <div class="recent-list">
+              {% for finding in recent_findings %}
+                <article class="recent-row" data-record-panel="{{ finding.panel_url }}">
+                  <div class="recent-main">
+                    <a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
+                    <small>
+                      {%- if finding.target %}{{ finding.target }} · {% endif -%}
+                      {{ finding.knowledge.bug_type }} · {{ finding.program.name -}}
+                    </small>
+                  </div>
+                  <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
+                  <span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span>
+                </article>
+              {% endfor %}
+            </div>
+          {% elif finding_total %}
+            <p class="empty-compact">{{ tr.empty }}</p>
+          {% else %}
+            <div class="empty-state">
+              <h2>{{ tr.first_steps }}</h2>
+              <p>{{ tr.first_steps_help }}</p>
+              <div class="empty-actions">
+                <a class="button" href="/programs/new">{{ tr.new_program }}</a>
+                <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+              </div>
+            </div>
+          {% endif %}
+        </section>
+
+        <div class="panel-stack">
+          <section class="panel">
+            <div class="panel-head">
+              <h2 class="section-label">{{ tr.earnings }}</h2>
+            </div>
+            <dl class="ledger">
+              {% for code, amount in earnings %}
+                <div>
+                  <dt>{{ code }}</dt>
+                  <dd>{{ '{:,.0f}'.format(amount) }}</dd>
+                </div>
+              {% else %}
+                <div>
+                  <dt>{{ tr.not_rewarded_yet }}</dt>
+                  <dd class="is-empty">–</dd>
+                </div>
+              {% endfor %}
+              {% if metrics.median_triage_days is not none %}
+                <div>
+                  <dt>{{ tr.median_triage }}</dt>
+                  <dd>{{ metrics.median_triage_days }} <span>{{ tr.days }}</span></dd>
+                </div>
+              {% endif %}
+              {% if metrics.median_reward_days is not none %}
+                <div>
+                  <dt>{{ tr.median_reward }}</dt>
+                  <dd>{{ metrics.median_reward_days }} <span>{{ tr.days }}</span></dd>
+                </div>
+              {% endif %}
+            </dl>
+            {% if metrics.median_triage_days is none and metrics.median_reward_days is none %}
+              <p class="panel-note">{{ tr.response_timing_unavailable }}</p>
+            {% endif %}
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2 class="section-label">{{ tr.breakdown }}</h2>
+            </div>
+            {% if finding_total %}
+              <div class="breakdown-section">
+                <h3>{{ tr.status_pipeline }}</h3>
+                <div class="bars">
+                  {% for status in statuses if status_counts.get(status, 0) %}
+                    {% set count = status_counts[status] %}
+                    <a class="bar-row status-{{ status }}" href="/findings?status={{ status }}">
+                      <span>{{ humanize(status) }}</span>
+                      <span class="bar"><i style="width: {{ count / max_status * 100 }}%"></i></span>
+                      <b>{{ count }}</b>
+                    </a>
+                  {% endfor %}
+                  {% if metrics.downgraded_count %}
+                    <a class="bar-row sev-medium" href="/search?q=is%3Adowngraded">
+                      <span>{{ tr.downgraded }}</span>
+                      <span class="bar"><i style="width: {{ metrics.downgraded_count / finding_total * 100 }}%"></i></span>
+                      <b>{{ metrics.downgraded_count }}</b>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="breakdown-section">
+                <h3>{{ tr.severity_mix }}</h3>
+                <div class="bars">
+                  {% for severity in severities|reverse if severity_counts.get(severity, 0) %}
+                    {% set count = severity_counts[severity] %}
+                    <a class="bar-row sev-{{ severity }}" href="/findings?severity={{ severity }}">
+                      <span>{{ humanize(severity) }}</span>
+                      <span class="bar"><i style="width: {{ count / max_severity * 100 }}%"></i></span>
+                      <b>{{ count }}</b>
+                    </a>
+                  {% endfor %}
+                </div>
+              </div>
+            {% else %}
+              <p class="empty-compact">{{ tr.empty }}</p>
+            {% endif %}
+          </section>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

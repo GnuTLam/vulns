@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.tags }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs"><a href="/knowledge">{{ tr.knowledge }}</a><i>/</i><strong>{{ tr.tags }}</strong><code>{{ tags|length }}</code></div>
+  </div>
+  <div class="workspace">
+    <section class="panel">
+      <p class="panel-note">{{ tr.tags_intro }}</p>
+      {% if tags %}
+        <div class="table-wrap">
+          <table class="registry-table">
+            <thead>
+              <tr>
+                <th>{{ tr.tag }}</th>
+                <th>{{ tr.findings }}</th>
+                <th>{{ tr.rename }}</th>
+                <th><span class="visually-hidden">{{ tr.delete }}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for tag, count in tags %}
+                <tr>
+                  <td><a class="tag" href="/knowledge?tag={{ tag.name|urlencode }}">{{ tag.name }}</a></td>
+                  <td><strong>{{ count }}</strong></td>
+                  <td>
+                    <form class="tag-rename" method="post" action="/knowledge/tags/{{ tag.id }}/rename">
+                      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                      <input name="name" value="{{ tag.name }}" maxlength="{{ tag_max_length }}" required aria-label="{{ tr.rename }} {{ tag.name }}">
+                      <button class="button" type="submit">{{ tr.rename }}</button>
+                    </form>
+                  </td>
+                  <td>
+                    <form method="post" action="/knowledge/tags/{{ tag.id }}/delete" data-confirm="{{ tr.confirm_delete_tag }}">
+                      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                      <button class="text-action danger" type="submit" aria-label="{{ tr.delete }} {{ tag.name }}">{{ tr.delete }}</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty-compact">{{ tr.no_tags }}</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

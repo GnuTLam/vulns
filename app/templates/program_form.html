@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.edit_program if program else tr.new_program }}{% endblock %}
+{% block content %}
+  {% set back_url = "/programs/" ~ program.id if program else "/programs" %}
+  <div class="toolbar">
+    <div class="crumbs">
+      <a href="{{ back_url }}">{{ tr.programs }}</a><i>/</i><strong>{{ tr.edit_program if program else tr.new_program }}</strong>
+    </div>
+  </div>
+  <div class="workspace">
+    <section class="panel structured-form">
+      <form method="post" action="{{ '/programs/' ~ program.id ~ '/edit' if program else '/programs/new' }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <div class="panel-body">
+          <div class="form-grid">
+            <label class="span-2">
+              {{ tr.name }}
+              <input name="name" value="{{ program.name if program else '' }}" required maxlength="180" autofocus>
+            </label>
+            <label>
+              {{ tr.platform }}
+              <input name="platform" value="{{ program.platform if program else '' }}" placeholder="HackerOne, Bugcrowd, Intigriti…">
+            </label>
+            <label>
+              {{ tr.handle }}
+              <input name="handle" value="{{ program.handle if program else '' }}" placeholder="acme-security">
+            </label>
+            <label class="span-2">
+              {{ tr.url }}
+              <input type="url" name="url" value="{{ program.url if program else '' }}" placeholder="https://…">
+              <small class="field-hint">{{ tr.program_url_help }}</small>
+            </label>
+            <label class="span-2">
+              {{ tr.notes }}
+              <textarea name="notes" rows="8" placeholder="Scope notes, contact details, testing restrictions…">{{ program.notes if program else '' }}</textarea>
+            </label>
+            <label class="check-row span-2">
+              <input type="checkbox" name="archived" value="true" {{ 'checked' if program and program.archived }}>
+              <span>{{ tr.archived }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-actions">
+          <a class="button" href="{{ back_url }}">{{ tr.cancel }}</a>
+          <button class="button primary" type="submit">{{ tr.save }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

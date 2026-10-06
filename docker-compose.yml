@@ -1,0 +1,25 @@
+name: vulns
+
+services:
+  vulns:
+    build: .
+    container_name: vulns
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${VULNS_PORT:-8000}:8000"
+    environment:
+      VULNS_ADMIN_USERNAME: ${VULNS_ADMIN_USERNAME:-admin}
+      VULNS_ADMIN_PASSWORD: ${VULNS_ADMIN_PASSWORD:?Set VULNS_ADMIN_PASSWORD in .env}
+      VULNS_ALLOW_WEAK_PASSWORD: ${VULNS_ALLOW_WEAK_PASSWORD:-false}
+      VULNS_SESSION_SECRET: ${VULNS_SESSION_SECRET:-}
+      VULNS_SECURE_COOKIES: ${VULNS_SECURE_COOKIES:-false}
+      VULNS_MAX_UPLOAD_MB: ${VULNS_MAX_UPLOAD_MB:-50}
+      VULNS_AGENT_TOKEN: ${VULNS_AGENT_TOKEN:-}
+      VULNS_DATA_DIR: /data
+    volumes:
+      - vulns_data:/data
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  vulns_data:

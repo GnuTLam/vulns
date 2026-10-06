@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ entry.title }}{% endblock %}
+{% block content %}
+  {% set edit_query = ("?program_id=" ~ context_program_id ~ ("&finding_id=" ~ context_finding_id if context_finding_id else "")) if context_program_id else "" %}
+  <div class="toolbar">
+    <div class="crumbs">
+      <a href="{{ '/programs/' ~ context_program_id if context_program_id else '/knowledge' }}">{{ tr.programs if context_program_id else tr.knowledge }}</a><i>/</i><strong>{{ entry.title }}</strong>
+      <code>{{ entry.id[:8]|upper }}</code>
+      {% if entry.is_draft %}<span class="draft-badge">{{ tr.draft_badge }}</span>{% endif %}
+    </div>
+    <div class="toolbar-actions knowledge-actions">
+      <form method="post" action="/knowledge/{{ entry.id }}/copy">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <button class="button" type="submit">{{ tr['copy'] }}</button>
+      </form>
+      <a class="button" href="/knowledge/{{ entry.id }}/markdown">.md</a>
+      <a class="button{{ ' primary' if entry.is_draft }}" href="/knowledge/{{ entry.id }}/edit{{ edit_query }}">{{ tr.triage if entry.is_draft else tr.edit }}</a>
+      <a class="button{{ '' if entry.is_draft else ' primary' }}" href="/findings/new?knowledge_id={{ entry.id }}{% if context_program_id %}&program_id={{ context_program_id }}{% endif %}">
+        {{- tr.link_program -}}
+      </a>
+    </div>
+  </div>
+  <div class="workspace">
+    {% if entry.is_draft %}<div class="draft-notice">{{ tr.draft_notice }}</div>{% endif %}
+    <div class="facts knowledge-facts">
+      <div>
+        <p class="k">{{ tr.severity }}</p>
+        <p class="v"><span class="severity {{ entry.default_severity }}">{{ humanize(entry.default_severity) }}</span></p>
+      </div>
+      <div>
+        <p class="k">{{ tr.bug_type }}</p>
+        <p class="v">{{ entry.bug_type }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.cwe }}</p>
+        <p class="v">{{ entry.cwe or '—' }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.cvss }}</p>
+        <p class="v num">{{ entry.cvss_score if entry.cvss_score is not none else '—' }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.programs }}</p>
+        <p class="v num">{{ entry.findings|length }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.evidence }}</p>
+        <p class="v num">{{ entry.evidence|length }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.updated }}</p>
+        <p class="v">{{ entry.updated_at.strftime("%Y-%m-%d") }}</p>
+      </div>
+    </div>
+    {% if entry.endpoint %}
+      <div class="facts facts-attached">
+        <div>
+          <p class="k">{{ tr.endpoint }}</p>
+          <p class="v">{{ entry.endpoint }}</p>
+        </div>
+      </div>
+    {% endif %}
+    {% if entry.tags %}
+      <div class="tag-list tag-row">{{ ui.tag_links(entry.tags) }}</div>
+    {% endif %}
+
+    <div class="grid-2 section-gap">
+      <section>
+        <div class="record-tabs" role="tablist">
+          <button id="report-tab" type="button" class="record-tab active" role="tab" aria-selected="true" aria-controls="report-pane" data-record-tab="report">
+            {{- tr.vulnerability_report -}}
+          </button>
+          <button id="evidence-tab" type="button" class="record-tab" role="tab" aria-selected="false" aria-controls="evidence" tabindex="-1" data-record-tab="evidence">
+            {{- tr.evidence }} <span>{{ entry.evidence|length }}</span>
+          </button>
+        </div>
+        <div id="report-pane" class="record-pane active" role="tabpanel" aria-labelledby="report-tab" aria-hidden="false" data-record-pane="report">
+          <div class="panel-body markdown-body report-reader"
+               data-report-reader
+               data-toc-label="{{ tr.on_this_page }}"
+               data-copy-label="{{ tr.copy_code }}"
+               data-copied-label="{{ tr.copied }}">{{ rendered|safe }}</div>
+          {% if entry.remediation and "remediation" not in report_roles %}
+            <div class="panel-head"><p class="section-label">{{ tr.remediation }}</p></div>
+            <div class="panel-body"><p class="pre-line">{{ entry.remediation }}</p></div>
+          {% endif %}
+          {% if entry.references and "references" not in report_roles %}
+            <div class="panel-head"><p class="section-label">{{ tr.references }}</p></div>
+            <div class="panel-body"><div class="pre-line references">{{ entry.references }}</div></div>
+          {% endif %}
+          {% if entry.research_notes %}
+            <div class="panel-head"><p class="section-label">{{ tr.research_notes }}</p></div>
+            <div class="panel-body"><p class="pre-line">{{ entry.research_notes }}</p></div>
+          {% endif %}
+        </div>
+        <div id="evidence" class="record-pane" role="tabpanel" aria-labelledby="evidence-tab" aria-hidden="true" data-record-pane="evidence">
+          <form class="inline-upload" method="post" action="/knowledge/{{ entry.id }}/evidence" enctype="multipart/form-data">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <label><span>{{ tr.upload }}</span><input type="file" name="upload" required data-file-input></label>
+            <button class="button" type="submit">{{ tr.upload }}</button>
+          </form>
+          {% if entry.evidence %}
+            <div class="evidence-list">
+              {% for item in entry.evidence %}
+                <article>
+                  {% if item.mime_type.startswith("image/") and item.mime_type != "image/svg+xml" %}
+                    <a class="evidence-thumb" href="/evidence/{{ item.id }}" target="_blank"><img src="/evidence/{{ item.id }}" alt="{{ item.filename }}" loading="lazy"></a>
+                  {% elif item.mime_type.startswith("video/") %}
+                    <video class="evidence-thumb" controls preload="metadata"><source src="/evidence/{{ item.id }}" type="{{ item.mime_type }}"></video>
+                  {% else %}
+                    <a class="file-type" href="/evidence/{{ item.id }}?download=true">FILE</a>
+                  {% endif %}
+                  <div><strong>{{ item.filename }}</strong><small>{{ item.mime_type }} · {{ (item.size_bytes / 1024)|round(1) }} KB</small></div>
+                  <a class="text-action" href="/evidence/{{ item.id }}?download=true">{{ tr.download }}</a>
+                  <form method="post" action="/evidence/{{ item.id }}/delete" data-confirm="{{ tr.confirm_delete }}">
+                    <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                    <button class="text-action danger" type="submit">{{ tr.delete }}</button>
+                  </form>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-compact">{{ tr.empty }}</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <div class="panel-stack">
+        <section class="panel">
+          <div class="panel-head">
+            <p class="section-label">{{ tr.properties }}</p>
+          </div>
+          <dl class="props">
+            {% if entry.technology %}
+              <div>
+                <dt>{{ tr.technology }}</dt>
+                <dd>{{ entry.technology }}</dd>
+              </div>
+            {% endif %}
+            <div>
+              <dt>{{ tr.created }}</dt>
+              <dd class="mono-cell">{{ entry.created_at.strftime("%Y-%m-%d") }}</dd>
+            </div>
+            <div>
+              <dt>{{ tr.updated }}</dt>
+              <dd class="mono-cell">{{ entry.updated_at.strftime("%Y-%m-%d") }}</dd>
+            </div>
+            <div>
+              <dt>ID</dt>
+              <dd class="mono-cell">{{ entry.id }}</dd>
+            </div>
+            <div>
+              <dt>{{ tr.ai_export }}</dt>
+              <dd>
+                {%- if entry.in_ai_export %}{{ tr.ai_included }}{% elif not entry.use_for_ai %}{{ tr.ai_excluded }}{% else %}{{ tr.draft }}{% endif %}
+                · <a class="text-action" href="/knowledge/{{ entry.id }}/ai.json" target="_blank">{{ tr.preview_ai_document }}</a>
+              </dd>
+            </div>
+          </dl>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <p class="section-label">{{ tr.linked_programs }}</p>
+            <span class="meta">{{ entry.findings|length }}</span>
+          </div>
+          {% if entry.findings %}
+            <div class="linked-list">
+              {% for finding in entry.findings %}
+                <a href="/findings/{{ finding.id }}/edit">
+                  <span>
+                    <strong>{{ finding.program.name }}</strong>
+                    <small>
+                      {{- finding.target or finding.scope or '—' }}
+                      {%- if finding.total_reward is not none %} · {{ '%g'|format(finding.total_reward) }} {{ finding.currency }}{% endif %}
+                      {%- if finding.severity_delta < 0 %} · {{ tr.downgraded }} → {{ humanize(finding.program_severity) }}
+                      {%- elif finding.severity_delta > 0 %} · {{ tr.upgraded }} → {{ humanize(finding.program_severity) }}
+                      {%- endif -%}
+                    </small>
+                  </span>
+                  <span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-compact">{{ tr.move_reuse }}</p>
+          {% endif %}
+          <a class="panel-action" href="/findings/new?knowledge_id={{ entry.id }}">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M8 3.5v9M3.5 8h9" />
+            </svg>{{ tr.link_program }}
+          </a>
+        </section>
+        {% if related or backlinks %}
+          <section class="panel">
+            {% if related %}
+              <div class="panel-head">
+                <p class="section-label">{{ tr.related }}</p>
+              </div>
+              <div class="related-list">
+                {% for item in related %}
+                  <a href="/knowledge/{{ item.id }}">{{ item.title }}</a>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if backlinks %}
+              <div class="panel-head"><p class="section-label">{{ tr.backlinks }}</p></div>
+              <p class="panel-note">{{ tr.backlinks_help }}</p>
+              <div class="related-list backlink-list">
+                {% for item in backlinks %}
+                  <a href="/knowledge/{{ item.id }}">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M13 8H3.5M7 4 3 8l4 4" />
+                    </svg>
+                    <span>{{ item.title }}</span>
+                  </a>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </section>
+        {% endif %}
+        {% if rediscover %}
+          {{ ui.rediscover_panel(rediscover, tr.rediscover_help) }}
+        {% endif %}
+        <details class="danger-disclosure">
+          <summary>{{ tr.danger_zone }}</summary>
+          <form class="danger-zone" method="post" action="/knowledge/{{ entry.id }}/delete" data-confirm="{{ tr.confirm_delete }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <span><strong>{{ tr.delete }}</strong><small>{{ tr.delete_knowledge_hint }}</small></span>
+            <button class="button danger" type="submit">{{ tr.delete }}</button>
+          </form>
+        </details>
+      </div>
+    </div>
+  </div>
+{% endblock %}

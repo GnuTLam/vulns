@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ tr.knowledge }}{% endblock %}
+{% block content %}
+  {% set filtered = q or selected_severity or selected_bug_type or selected_tag or selected_ai or selected_draft %}
+  <div class="toolbar">
+    <div class="crumbs"><strong>{{ tr.knowledge }}</strong><code>{{ result_total }} {{ tr.results }}</code></div>
+    <div class="toolbar-actions">
+      <a class="button" href="/knowledge/tags">{{ tr.tags }}</a>
+      <a class="button" href="/knowledge/export">{{ tr.export_for_ai }}</a>
+      <a class="button" href="/knowledge/import">{{ tr.import_markdown }}</a>
+      <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+    </div>
+  </div>
+  <div class="workspace">
+    <form class="filter-bar" method="get" data-auto-filter>
+      <label class="search-field"><input type="search" name="q" value="{{ q }}" placeholder="{{ tr.quick_search }}"></label>
+      <select name="severity" aria-label="{{ tr.severity }}">
+        <option value="">{{ tr.all_severities }}</option>
+        {% for item in severities %}
+          <option value="{{ item }}" {{ 'selected' if selected_severity == item }}>{{ humanize(item) }}</option>
+        {% endfor %}
+      </select>
+      <select name="bug_type" aria-label="{{ tr.bug_type }}">
+        <option value="">{{ tr.all_bug_types }}</option>
+        {% for item in bug_types %}
+          <option value="{{ item }}" {{ 'selected' if selected_bug_type == item }}>{{ item }}</option>
+        {% endfor %}
+      </select>
+      <select name="tag" aria-label="{{ tr.tags }}">
+        <option value="">{{ tr.all_tags }}</option>
+        {% for tag, count in tag_options %}
+          <option value="{{ tag.name }}" {{ 'selected' if selected_tag == tag.name }}>{{ tag.name }} ({{ count }})</option>
+        {% endfor %}
+      </select>
+      <select name="ai" aria-label="{{ tr.ai_export }}">
+        <option value="">{{ tr.ai_export }}: {{ tr.all|lower }}</option>
+        <option value="included" {{ 'selected' if selected_ai == 'included' }}>{{ tr.ai_export }}: {{ tr.ai_included|lower }}</option>
+        <option value="excluded" {{ 'selected' if selected_ai == 'excluded' }}>{{ tr.ai_export }}: {{ tr.ai_excluded|lower }}</option>
+      </select>
+      <label class="draft-filter">
+        <input type="checkbox" name="draft" value="1" {{ 'checked' if selected_draft == '1' }}> {{ tr.drafts }}
+        {%- if draft_count %} ({{ draft_count }}){% endif %}
+      </label>
+      <button class="button" type="submit">{{ tr.filter }}</button>
+      {% if filtered %}
+        <a class="text-action" href="/knowledge">{{ tr['clear'] }}</a>
+      {% endif %}
+    </form>
+    {{ ui.query_warnings(query_warnings) }}
+    <section class="panel">
+      {% if entries %}
+        <div class="table-wrap">
+          <table class="registry-table knowledge-table">
+            <thead>
+              <tr>
+                <th class="num-head">#</th>
+                <th>{{ tr.title }}</th>
+                <th>{{ tr.bug_type }}</th>
+                <th>{{ tr.severity }}</th>
+                <th>{{ tr.programs }}</th>
+                <th>{{ tr.updated }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in entries %}
+                <tr data-record-panel="/knowledge/{{ entry.id }}/panel">
+                  <td class="num-cell sev-{{ entry.default_severity }}">{{ loop.index }}</td>
+                  <td>
+                    <a class="strong-link" href="/knowledge/{{ entry.id }}">{{ entry.title }}</a>
+                    {%- if entry.is_draft %} <span class="draft-badge">{{ tr.draft_badge }}</span>{% endif %}
+                    {%- if not entry.use_for_ai %} <span class="draft-badge">{{ tr.ai_off_badge }}</span>{% endif -%}
+                    <small>{{ entry.summary|truncate(92) }}</small>
+                    {% if entry.tags %}
+                      <span class="tag-list">{{ ui.tag_links(entry.tags) }}</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ entry.bug_type }}</td>
+                  <td><span class="severity {{ entry.default_severity }}">{{ humanize(entry.default_severity) }}</span></td>
+                  <td><strong>{{ entry.findings|length }}</strong></td>
+                  <td class="mono-cell">{{ entry.updated_at.strftime("%Y-%m-%d") }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h2>{{ tr.no_search_results if filtered else tr.empty }}</h2>
+          {% if not filtered %}
+            <p>{{ tr.knowledge_intro }}</p>
+            <div class="empty-actions">
+              <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+              <a class="button" href="/knowledge/import">{{ tr.import_markdown }}</a>
+              <a class="button" href="/capture">{{ tr.quick_capture }}</a>
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

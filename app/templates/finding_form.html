@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ tr.edit if finding else tr.new_finding }}{% endblock %}
+{% block content %}
+  {% set back_url = "/programs/" ~ finding.program_id if finding else "/findings" %}
+  {% set has_submission = finding and (finding.report_id or finding.report_url or finding.discovered_at
+     or finding.submitted_at or finding.private_notes) %}
+  {% set has_bounty = finding and (finding.triaged_at or finding.resolved_at or finding.rewarded_at
+     or finding.payout is not none or finding.bonus is not none or finding.program_severity or finding.duplicate_of) %}
+  <div class="toolbar">
+    <div class="crumbs">
+      <a href="{{ back_url }}">{{ tr.findings }}</a><i>/</i><strong>{{ tr.edit if finding else tr.new_finding }}</strong>
+    </div>
+  </div>
+  <div class="workspace">
+    <section class="panel structured-form">
+      <div class="panel-head">
+        <p class="section-label">{{ tr.program_specific }}</p>
+      </div>
+      <form method="post" action="{{ '/findings/' ~ finding.id ~ '/edit' if finding else '/findings/new' }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <div class="panel-body">
+          <div class="form-grid">
+            <label>
+              {{ tr.move_to_program if finding else tr.program }}
+              <select name="program_id" required>
+                <option value="" disabled {{ 'selected' if not selected_program }}>—</option>
+                {% for item in programs %}
+                  <option value="{{ item.id }}" {{ 'selected' if selected_program == item.id }}>{{ item.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {{ tr.knowledge }}
+              <select name="knowledge_id" required>
+                <option value="" disabled {{ 'selected' if not selected_knowledge }}>—</option>
+                {% for item in entries %}
+                  <option value="{{ item.id }}" {{ 'selected' if selected_knowledge == item.id }}>{{ item.title }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {{ tr.status }}
+              <select name="status" required>
+                {% for item in statuses %}
+                  <option value="{{ item }}" {{ 'selected' if (finding.status if finding else 'draft') == item }}>{{ humanize(item) }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {{ tr.severity }}
+              <select name="severity" required>
+                {% for item in severities %}
+                  <option value="{{ item }}" {{ 'selected' if (finding.severity if finding else 'medium') == item }}>{{ humanize(item) }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              {{ tr.target }}
+              <input name="target" value="{{ finding.target if finding else '' }}" placeholder="e.g. api.example.com / endpoint / app">
+            </label>
+            <label>
+              {{ tr.scope }}
+              <input name="scope" value="{{ finding.scope if finding else '' }}" placeholder="In-scope asset or component">
+            </label>
+          </div>
+        </div>
+
+        <details class="form-disclosure" {{ 'open' if has_submission }}>
+          <summary><span>{{ tr.submission_details }}</span><small>{{ tr.submission_summary }}</small></summary>
+          <div class="panel-body">
+            <div class="form-grid">
+              <label>
+                {{ tr.report_id }}
+                <input name="report_id" value="{{ finding.report_id if finding else '' }}" placeholder="H1-123456">
+              </label>
+              <label>
+                {{ tr.report_url }}
+                <input type="url" name="report_url" value="{{ finding.report_url if finding else '' }}" placeholder="https://…">
+                <small class="field-hint">{{ tr.report_url_help }}</small>
+              </label>
+              <label>
+                {{ tr.discovered_at }}
+                <input type="date" name="discovered_at" value="{{ finding.discovered_at if finding else '' }}">
+              </label>
+              <label>
+                {{ tr.submitted_at }}
+                <input type="date" name="submitted_at" value="{{ finding.submitted_at if finding else '' }}">
+              </label>
+              <label class="span-2">
+                {{ tr.private_notes }}
+                <textarea name="private_notes" rows="5" placeholder="Program-specific context, triage conversation, retest notes…">{{ finding.private_notes if finding else '' }}</textarea>
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <details class="form-disclosure bounty-editor" {{ 'open' if has_bounty }}>
+          <summary><span>{{ tr.bounty_tracking }}</span><small>{{ tr.bounty_summary }}</small></summary>
+          <div class="panel-body">
+            <div class="form-grid">
+              <label>
+                {{ tr.triaged_at }}
+                <input type="date" name="triaged_at" value="{{ finding.triaged_at if finding else '' }}">
+              </label>
+              <label>
+                {{ tr.resolved_at }}
+                <input type="date" name="resolved_at" value="{{ finding.resolved_at if finding else '' }}">
+              </label>
+              <label>
+                {{ tr.rewarded_at }}
+                <input type="date" name="rewarded_at" value="{{ finding.rewarded_at if finding else '' }}">
+              </label>
+              <label>
+                {{ tr.currency }}
+                <select name="currency">
+                  {% for code in currencies %}
+                    <option value="{{ code }}" {{ 'selected' if (finding.currency if finding else default_currency) == code }}>{{ code }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                {{ tr.base_payout }}
+                <input type="number" step="0.01" min="0" name="payout" value="{{ finding.payout if finding and finding.payout is not none else '' }}" placeholder="0.00">
+              </label>
+              <label>
+                {{ tr.bonus }}
+                <input type="number" step="0.01" min="0" name="bonus" value="{{ finding.bonus if finding and finding.bonus is not none else '' }}" placeholder="0.00">
+              </label>
+              <label>
+                {{ tr.program_severity }}
+                <select name="program_severity">
+                  <option value="">{{ tr.same_as_yours }}</option>
+                  {% for item in severities %}
+                    <option value="{{ item }}" {{ 'selected' if finding and finding.program_severity == item }}>{{ humanize(item) }}</option>
+                  {% endfor %}
+                </select>
+                <small class="field-hint">{{ tr.program_severity_help }}</small>
+              </label>
+              <label>
+                {{ tr.duplicate_of }}
+                <input name="duplicate_of" value="{{ finding.duplicate_of if finding else '' }}" placeholder="H1-100200">
+                <small class="field-hint">{{ tr.duplicate_of_help }}</small>
+              </label>
+            </div>
+            {% set facts = ui.reward_facts(finding) if finding else "" %}
+            {% if facts|trim %}
+              <div class="facts bounty-facts">{{ facts }}</div>
+            {% endif %}
+          </div>
+        </details>
+
+        <div class="form-actions">
+          {% if finding %}
+            <button class="button danger" type="submit" form="unlink-form">{{ tr.unlink_from_program }}</button>
+          {% endif %}
+          <span class="flex-spacer"></span>
+          <a class="button" href="{{ back_url }}">{{ tr.cancel }}</a>
+          <button class="button primary" type="submit">{{ tr.save }}</button>
+        </div>
+      </form>
+      {% if finding %}
+        {# Separate form, so Enter in a field submits Save rather than this button. #}
+        <form id="unlink-form" method="post" action="/findings/{{ finding.id }}/delete" data-confirm="{{ tr.confirm_unlink }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        </form>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

@@ -1,0 +1,171 @@
+{# Record drawer fragment, injected by app.js; the edit tab loads the real editor in a frame. #}
+{% import "_macros.html" as ui with context %}
+{% set finding = program_finding %}
+<header class="drawer-head">
+  <div class="drawer-title">
+    <strong title="{{ entry.title }}">{{ entry.title }}</strong>
+    <div class="drawer-badges">
+      <span class="severity {{ entry.default_severity }}">{{ humanize(entry.default_severity) }}</span>
+      {% if entry.is_draft %}<span class="draft-badge">{{ tr.draft_badge }}</span>{% endif %}
+      {% if finding %}<span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span>{% endif %}
+      <small>
+        {{- entry.bug_type }}
+        {%- if entry.cwe %} · {{ entry.cwe }}{% endif %}
+        {%- if entry.cvss_score is not none %} · CVSS {{ entry.cvss_score }}{% endif -%}
+      </small>
+    </div>
+  </div>
+  <div class="drawer-actions">
+    <a class="button ghost icon-button" href="{{ full_url }}" title="{{ tr.view }}" aria-label="{{ tr.view }}">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9" />
+      </svg>
+    </a>
+    <button class="button ghost icon-button" type="button" data-drawer-close title="{{ tr.cancel }}" aria-label="{{ tr.cancel }}">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <path d="M4 4l8 8M12 4l-8 8" />
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="drawer-tabs" role="tablist">
+  <button id="drawer-preview-tab" class="drawer-tab active" type="button" role="tab" aria-selected="true" aria-controls="drawer-preview-pane" data-drawer-tab="preview">
+    {{- tr.preview -}}
+  </button>
+  <button id="drawer-edit-tab" class="drawer-tab" type="button" role="tab" aria-selected="false" aria-controls="drawer-edit-pane" tabindex="-1" data-drawer-tab="edit">
+    {{- tr.edit -}}
+  </button>
+  {% if entry.evidence %}
+    <button id="drawer-evidence-tab" class="drawer-tab" type="button" role="tab" aria-selected="false" aria-controls="drawer-evidence-pane" tabindex="-1" data-drawer-tab="evidence">
+      {{- tr.evidence }}<span>{{ entry.evidence|length }}</span>
+    </button>
+  {% endif %}
+</div>
+
+<div id="drawer-preview-pane" class="drawer-pane active" role="tabpanel" aria-labelledby="drawer-preview-tab" aria-hidden="false" data-drawer-pane="preview">
+  <dl class="props">
+    {% if entry.endpoint %}
+      <div>
+        <dt>{{ tr.endpoint }}</dt>
+        <dd class="mono-cell">{{ entry.endpoint }}</dd>
+      </div>
+    {% endif %}
+    {% if entry.technology %}
+      <div>
+        <dt>{{ tr.technology }}</dt>
+        <dd>{{ entry.technology }}</dd>
+      </div>
+    {% endif %}
+    {% if entry.tags %}
+      <div>
+        <dt>{{ tr.tags }}</dt>
+        <dd class="tag-list">{{ ui.tag_links(entry.tags) }}</dd>
+      </div>
+    {% endif %}
+    <div>
+      <dt>{{ tr.updated }}</dt>
+      <dd class="mono-cell">{{ entry.updated_at.strftime("%Y-%m-%d") }}</dd>
+    </div>
+  </dl>
+  {% if finding %}
+    <div class="facts bounty-facts drawer-facts">
+      <div>
+        <p class="k">{{ tr.program }}</p>
+        <p class="v">
+          {%- if finding.program.url -%}
+            <a class="text-action external-link" href="{{ finding.program.url }}" target="_blank" rel="noreferrer noopener">
+              <span>{{ finding.program.name }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9" />
+              </svg>
+            </a>
+          {%- else -%}
+            {{ finding.program.name }}
+          {%- endif -%}
+        </p>
+      </div>
+      {% if finding.target %}
+        <div>
+          <p class="k">{{ tr.target }}</p>
+          <p class="v mono">{{ finding.target }}</p>
+        </div>
+      {% endif %}
+      {{ ui.reward_facts(finding) }}
+      {% if finding.severity_delta < 0 %}
+        <div>
+          <p class="k">{{ tr.program_severity }}</p>
+          <p class="v">{{ humanize(finding.program_severity) }} <small>({{ tr.downgraded }})</small></p>
+        </div>
+      {% endif %}
+    </div>
+    <p class="drawer-reference">
+      <a class="button" href="/findings/{{ finding.id }}/edit">{{ tr.edit_submission }}</a>
+      {% if finding.report_url %}
+        <a class="button" href="{{ finding.report_url }}" target="_blank" rel="noreferrer noopener">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9" />
+          </svg>{{ tr.open_submission }}
+        </a>
+      {% endif %}
+      {%- if finding.report_id %}<code>{{ finding.report_id }}</code>{% endif %}
+    </p>
+    <details class="drawer-manage">
+      <summary>{{ tr.move_to_program }}</summary>
+      <div class="drawer-manage-body">
+        {% if move_programs %}
+          <form class="move-form" method="post" action="/findings/{{ finding.id }}/move">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <select name="program_id" required aria-label="{{ tr.move_to_program }}">
+              <option value="" selected disabled>{{ tr.select_program }}</option>
+              {% for program in move_programs %}
+                <option value="{{ program.id }}">{{ program.name }}</option>
+              {% endfor %}
+            </select>
+            <button class="button" type="submit" disabled>{{ tr.move }}</button>
+          </form>
+        {% else %}
+          <p class="empty-compact">{{ tr.no_move_destinations }}</p>
+        {% endif %}
+        <form method="post" action="/findings/{{ finding.id }}/delete" data-confirm="{{ tr.confirm_unlink }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token }}">
+          <button class="button danger" type="submit">{{ tr.unlink_from_program }}</button>
+          <small>{{ tr.unlink_help }}</small>
+        </form>
+      </div>
+    </details>
+  {% endif %}
+  <div class="markdown-body drawer-markdown report-reader"
+       data-report-reader
+       data-toc-label="{{ tr.on_this_page }}"
+       data-copy-label="{{ tr.copy_code }}"
+       data-copied-label="{{ tr.copied }}">{{ rendered|safe }}</div>
+  {% if entry.remediation and "remediation" not in report_roles %}
+    <h3 class="drawer-subhead">{{ tr.remediation }}</h3>
+    <p class="pre-line">{{ entry.remediation }}</p>
+  {% endif %}
+  {% if entry.references and "references" not in report_roles %}
+    <h3 class="drawer-subhead">{{ tr.references }}</h3>
+    <p class="pre-line">{{ entry.references }}</p>
+  {% endif %}
+</div>
+
+<div id="drawer-edit-pane" class="drawer-pane drawer-edit" role="tabpanel" aria-labelledby="drawer-edit-tab" aria-hidden="true" data-drawer-pane="edit" data-edit-url="{{ edit_url }}"></div>
+
+{% if entry.evidence %}
+  <div id="drawer-evidence-pane" class="drawer-pane" role="tabpanel" aria-labelledby="drawer-evidence-tab" aria-hidden="true" data-drawer-pane="evidence">
+    <div class="evidence-list">
+      {% for item in entry.evidence %}
+        <article>
+          {% if item.mime_type.startswith("image/") and item.mime_type != "image/svg+xml" %}
+            <img class="evidence-thumb" src="/evidence/{{ item.id }}" alt="">
+          {% else %}
+            <div class="file-type">{{ item.filename.rsplit('.', 1)[-1][:4]|upper }}</div>
+          {% endif %}
+          <div><strong>{{ item.filename }}</strong><small>{{ (item.size_bytes / 1024)|round(1) }} KB · {{ item.mime_type }}</small></div>
+          <a class="text-action" href="/evidence/{{ item.id }}" target="_blank" rel="noreferrer noopener">{{ tr.view }}</a>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}

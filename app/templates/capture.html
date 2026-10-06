@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.quick_capture }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs"><a href="/knowledge">{{ tr.knowledge }}</a><i>/</i><strong>{{ tr.quick_capture }}</strong></div>
+    <div class="toolbar-actions">
+      <a class="button" href="/knowledge?draft=1">{{ tr.drafts }}{% if draft_count %} · {{ draft_count }}{% endif %}</a>
+    </div>
+  </div>
+  <div class="workspace">
+    <section class="panel capture-form">
+      <p class="panel-note">{{ tr.quick_capture_help }}</p>
+      <form method="post" action="/capture">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <div class="panel-body">
+          <div class="field-block">
+            <label for="capture-title">{{ tr.title }}</label>
+            <input id="capture-title" name="title" required maxlength="240" autofocus placeholder="{{ tr.title }}…">
+          </div>
+          <div class="field-block">
+            <label for="capture-body">{{ tr.capture_paste }}</label>
+            <textarea id="capture-body" name="capture" rows="12" spellcheck="false" placeholder="{{ tr.capture_paste_placeholder }}"></textarea>
+          </div>
+        </div>
+        <div class="capture-actions">
+          <a class="button" href="/knowledge">{{ tr.cancel }}</a>
+          <button class="button primary" type="submit">{{ tr.capture_save }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

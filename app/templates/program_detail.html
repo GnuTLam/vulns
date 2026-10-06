@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}{{ program.name }}{% endblock %}
+{% block content %}
+  {% set finding_count = program.findings|length %}
+  <div class="toolbar">
+    <div class="crumbs">
+      <a href="/programs">{{ tr.programs }}</a><i>/</i><strong>{{ program.name }}</strong>
+      <code>{{ program.platform|upper or 'INDEPENDENT' }}</code>
+      {% if program.archived %}<span class="draft-badge">{{ tr.archived|upper }}</span>{% endif %}
+    </div>
+    <div class="toolbar-actions">
+      <form method="post" action="/programs/{{ program.id }}/{{ 'restore' if program.archived else 'archive' }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+        <button class="button" type="submit">{{ tr.restore if program.archived else tr.archive }}</button>
+      </form>
+      <a class="button" href="/programs/{{ program.id }}/edit">{{ tr.edit_program }}</a>
+      {% if not program.archived %}
+        <a class="button primary" href="/knowledge/new?program_id={{ program.id }}">{{ tr.new_vulnerability }}</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="workspace">
+    <div class="facts">
+      <div>
+        <p class="k">{{ tr.findings }}</p>
+        <p class="v num">{{ finding_count }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.accepted }}</p>
+        <p class="v num">{{ program.findings|selectattr('status', 'equalto', 'accepted')|list|length }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.handle }}</p>
+        <p class="v">{{ program.handle or '—' }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.created }}</p>
+        <p class="v">{{ program.created_at.strftime("%Y-%m-%d") }}</p>
+      </div>
+      <div>
+        <p class="k">{{ tr.updated }}</p>
+        <p class="v">{{ program.updated_at.strftime("%Y-%m-%d") }}</p>
+      </div>
+    </div>
+
+    {% if program.findings %}
+      <section class="panel section-gap">
+        <div class="panel-head">
+          <p class="section-label">{{ tr.bounty_tracking }}</p>
+          <span class="meta">{{ metrics.rewarded_count }} {{ tr.rewarded|lower }}</span>
+        </div>
+        <div class="facts bounty-facts">
+          <div>
+            <p class="k">{{ tr.earnings }}</p>
+            {% for code, amount in earnings %}
+              <p class="v num">{{ '%g'|format(amount) }} <small>{{ code }}</small></p>
+            {% else %}
+              <p class="v muted">{{ tr.not_rewarded_yet }}</p>
+            {% endfor %}
+          </div>
+          <div>
+            <p class="k">{{ tr.median_triage }}</p>
+            <p class="v num">{{ metrics.median_triage_days if metrics.median_triage_days is not none else '—' }}</p>
+          </div>
+          <div>
+            <p class="k">{{ tr.median_reward }}</p>
+            <p class="v num">{{ metrics.median_reward_days if metrics.median_reward_days is not none else '—' }}</p>
+          </div>
+          <div>
+            <p class="k">{{ tr.downgraded }}</p>
+            <p class="v num">{{ metrics.downgraded_count }}</p>
+          </div>
+        </div>
+        {% if metrics.median_triage_days is none and metrics.median_reward_days is none %}
+          <p class="panel-note">{{ tr.no_response_data }}</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <div class="grid-2 section-gap">
+      <section class="panel">
+        <div class="panel-head">
+          <p class="section-label">{{ tr.findings }}</p>
+          <span class="meta">{{ finding_count }}</span>
+        </div>
+        {% if program.findings %}
+          <div class="table-wrap">
+            <table class="registry-table">
+              <thead>
+                <tr>
+                  <th class="num-head">#</th>
+                  <th>{{ tr.title }}</th>
+                  <th>{{ tr.target }}</th>
+                  <th>{{ tr.severity }}</th>
+                  <th>{{ tr.status }}</th>
+                  <th>{{ tr.updated }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for finding in program.findings|sort(attribute="updated_at", reverse=true) %}
+                  <tr data-record-panel="{{ finding.panel_url }}">
+                    <td class="num-cell sev-{{ finding.severity }}">{{ loop.index }}</td>
+                    <td>
+                      <a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
+                      <small>
+                        {{- finding.knowledge.bug_type }}
+                        {%- if finding.report_id %} · {{ finding.report_id }}{% endif %}
+                        {%- if finding.report_url %} · <a href="{{ finding.report_url }}" target="_blank" rel="noreferrer noopener">{{ tr.open_submission }}</a>{% endif -%}
+                      </small>
+                    </td>
+                    <td class="mono-cell">{{ finding.target or '—' }}</td>
+                    <td><span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span></td>
+                    <td><span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span></td>
+                    <td class="mono-cell">{{ finding.updated_at.strftime("%Y-%m-%d") }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h2>{{ tr.empty }}</h2>
+            <div class="empty-actions">
+              <a class="button primary" href="/knowledge/new?program_id={{ program.id }}">{{ tr.new_vulnerability }}</a>
+            </div>
+          </div>
+        {% endif %}
+      </section>
+
+      <div class="panel-stack">
+        {% if program.url or program.notes %}
+          <section class="panel">
+            <div class="panel-head">
+              <p class="section-label">{{ tr.notes }}</p>
+            </div>
+            {% if program.url %}
+              <dl class="props">
+                <div>
+                  <dt>{{ tr.url }}</dt>
+                  <dd>
+                    <a class="text-action external-link" href="{{ program.url }}" target="_blank" rel="noreferrer noopener">
+                      <span>{{ program.url }}</span>
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9" />
+                      </svg>
+                    </a>
+                  </dd>
+                </div>
+              </dl>
+            {% endif %}
+            {% if program.notes %}
+              <div class="panel-body"><p class="pre-line">{{ program.notes }}</p></div>
+            {% endif %}
+          </section>
+        {% endif %}
+        {% if rediscover %}
+          {{ ui.rediscover_panel(rediscover, tr.rediscover_program_help, "?program_id=" ~ program.id) }}
+        {% endif %}
+        <details class="danger-disclosure">
+          <summary>{{ tr.danger_zone }}</summary>
+          <form class="danger-zone" method="post" action="/programs/{{ program.id }}/delete" data-confirm="{{ tr.confirm_delete }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token }}">
+            <span>
+              <strong>{{ tr.delete }} {{ tr.program|lower }}</strong>
+              <small>
+                {{- tr.this_program_has }} {{ finding_count }} {{ tr.vulnerability if finding_count == 1 else tr.findings|lower }}. {{ tr.delete_program_hint -}}
+              </small>
+            </span>
+            <button class="button danger" type="submit">{{ tr.delete }}</button>
+          </form>
+        </details>
+      </div>
+    </div>
+  </div>
+{% endblock %}

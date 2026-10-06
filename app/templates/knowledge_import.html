@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.import_markdown }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs"><a href="/knowledge">{{ tr.knowledge }}</a><i>/</i><strong>{{ tr.import_markdown }}</strong></div>
+  </div>
+  <div class="workspace">
+    <div class="grid-2 import-layout">
+      <section class="panel import-form">
+        <p class="panel-note">{{ tr.import_markdown_help }}</p>
+        <form method="post" action="/knowledge/import" enctype="multipart/form-data" data-import-form data-extension-error="{{ tr.import_rule_ext }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token }}">
+          <div class="panel-body">
+            <div class="alert danger" role="alert" aria-live="assertive" data-import-error {{ 'hidden' if not error }}>{{ error }}</div>
+            <div class="field-block">
+              <label for="markdown-upload">{{ tr.markdown_file }}</label>
+              <label class="drop-zone import-drop" data-import-drop>
+                <strong data-import-prompt>{{ tr.drop_markdown }}</strong>
+                <span>{{ tr.markdown_requirements }} · {{ (max_upload_bytes / 1048576)|round(1) }} MB max</span>
+                <input id="markdown-upload" type="file" name="upload" accept=".md,text/markdown" required data-import-input>
+              </label>
+              <div class="pending-files" data-import-selected hidden></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <a class="button" href="/knowledge">{{ tr.cancel }}</a>
+            <button class="button primary" type="submit" data-import-submit disabled>{{ tr.import_as_draft }}</button>
+          </div>
+        </form>
+      </section>
+      <aside class="import-guide">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>{{ tr.import_accepts }}</h2>
+          </div>
+          <div class="panel-body">
+            <ul class="import-checklist">
+              <li>{{ tr.import_rule_ext }}</li>
+              <li>{{ tr.import_rule_utf8 }}</li>
+              <li>{{ tr.import_rule_structure }}</li>
+              <li>{{ tr.import_rule_frontmatter }}</li>
+            </ul>
+          </div>
+          <div class="panel-head import-guide-subhead">
+            <h2>{{ tr.import_frontmatter_example }}</h2>
+          </div>
+          <div class="panel-body">
+            <pre class="import-sample"><code>---
+title: OAuth state confusion
+bug_type: OAuth / SSO
+severity: critical
+endpoint: GET /oauth/callback
+technology: OAuth 2.0
+cwe: CWE-384
+cvss_score: 9.1
+tags: [oauth, session-fixation]
+---
+
+# Summary
+…</code></pre>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+{% endblock %}
