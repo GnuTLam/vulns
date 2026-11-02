@@ -22,6 +22,7 @@ from ..security import validate_csrf
 from ..stats import draft_count
 from ..taxonomy import BUG_TYPES, MAX_TAGS, SEVERITIES, TAG_MAX_LENGTH, normalize_tag, parse_tags
 from ..web import (
+    evidence_types,
     explorer_values,
     get_db,
     get_knowledge,
@@ -323,7 +324,7 @@ def knowledge_detail(
         "knowledge_detail.html",
         "programs" if program_id else "knowledge",
         entry=item,
-        rendered=render_markdown(item.markdown),
+        rendered=render_markdown(item.markdown, evidence_types(db, item.markdown)),
         report_roles=report_roles(item.markdown),
         related=related_entries(item),
         backlinks=backlink_only_entries(db, item),
@@ -354,7 +355,7 @@ def knowledge_panel(
         request,
         "_record_drawer.html",
         entry=item,
-        rendered=render_markdown(item.markdown),
+        rendered=render_markdown(item.markdown, evidence_types(db, item.markdown)),
         report_roles=report_roles(item.markdown),
         program_finding=program_finding,
         move_programs=[
@@ -533,9 +534,9 @@ def knowledge_download(request: Request, knowledge_id: str, db: Session = Depend
 
 
 @router.post("/markdown/preview", response_class=HTMLResponse)
-def markdown_preview(request: Request, markdown: str = Form(""), csrf: str = Form(...)):
+def markdown_preview(request: Request, markdown: str = Form(""), csrf: str = Form(...), db: Session = Depends(get_db)):
     validate_csrf(request, csrf)
-    return HTMLResponse(render_markdown(markdown))
+    return HTMLResponse(render_markdown(markdown, evidence_types(db, markdown)))
 
 
 @router.post("/knowledge/candidates")

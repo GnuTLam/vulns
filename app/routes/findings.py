@@ -1,14 +1,16 @@
 """Findings: one knowledge entry submitted to one program."""
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from ..forms import BountyRecord, apply_bounty, bounty_fields, ensure_unlinked, finding_dates, lf
+from ..forms import BountyRecord, apply_bounty, bounty_fields, check_currency, ensure_unlinked, finding_dates, lf
 from ..models import Finding, KnowledgeEntry, Program
 from ..search import compose_query, finding_rows, parse_query
 from ..security import validate_csrf, validate_external_url
-from ..taxonomy import SEVERITIES, STATUSES
+from ..taxonomy import OUTCOMES, SEVERITIES, STATUSES
 from ..web import (
     explorer_values,
     get_db,
@@ -44,8 +46,8 @@ def _severity_chart(severity_counts: dict[str, int], total: int) -> str:
     return ", ".join(segments) or "var(--surface-3) 0deg 360deg"
 
 
-def _check_values(status: str, severity: str) -> None:
-    if status not in STATUSES or severity not in SEVERITIES:
+def _check_values(status: str, severity: str, outcome: str = "") -> None:
+    if status not in STATUSES or severity not in SEVERITIES or outcome not in OUTCOMES:
         raise HTTPException(status_code=422)
 
 
@@ -78,8 +80,8 @@ def findings_list(
     severity_counts = {item: sum(1 for finding in all_findings if finding.severity == item) for item in SEVERITIES}
     finding_metrics = {
         "total": len(all_findings),
-        "submitted": sum(1 for finding in all_findings if finding.status in {"submitted", "triaged"}),
-        "accepted": sum(1 for finding in all_findings if finding.status in {"accepted", "resolved", "paid"}),
+        "submitted": sum(1 for finding in all_findings if finding.status != "done"),
+        "accepted": sum(1 for finding in all_findings if finding.outcome == "accepted"),
         "rewarded": sum(1 for finding in all_findings if finding.total_reward is not None),
     }
     return render(
@@ -129,6 +131,7 @@ def finding_create(
     scope: str = Form(""),
     status: str = Form(...),
     severity: str = Form(...),
+    outcome: str = Form(""),
     report_id: str = Form(""),
     report_url: str = Form(""),
     discovered_at: str = Form(""),
@@ -142,7 +145,8 @@ def finding_create(
     _open_program(db, program_id, "Archived programs cannot receive vulnerabilities")
     knowledge = get_knowledge(db, knowledge_id)
     ensure_unlinked(db, program_id, knowledge_id)
-    _check_values(status, severity)
+    _check_values(status, severity, outcome)
+    check_currency(bounty)
     discovered_at, submitted_at = finding_dates(discovered_at, submitted_at, bounty)
     item = Finding(
         program_id=program_id,
@@ -151,6 +155,7 @@ def finding_create(
         scope=scope.strip(),
         status=status,
         severity=severity,
+        outcome=outcome,
         report_id=report_id.strip(),
         report_url=validate_external_url(report_url, "Report URL"),
         discovered_at=discovered_at,
@@ -211,6 +216,7 @@ def finding_edit(
     scope: str = Form(""),
     status: str = Form(...),
     severity: str = Form(...),
+    outcome: str = Form(""),
     report_id: str = Form(""),
     report_url: str = Form(""),
     discovered_at: str = Form(""),
@@ -228,11 +234,13 @@ def finding_edit(
         raise HTTPException(status_code=422, detail="Cannot move a vulnerability to an archived program")
     get_knowledge(db, knowledge_id)
     ensure_unlinked(db, program_id, knowledge_id, finding_id=item.id)
-    _check_values(status, severity)
+    _check_values(status, severity, outcome)
+    check_currency(bounty, item.currency)
     discovered_at, submitted_at = finding_dates(discovered_at, submitted_at, bounty)
     old_knowledge_id = item.knowledge_id
     item.program_id, item.knowledge_id = program_id, knowledge_id
     item.target, item.scope, item.status, item.severity = target.strip(), scope.strip(), status, severity
+    item.outcome = outcome
     item.report_id, item.report_url = report_id.strip(), validate_external_url(report_url, "Report URL")
     item.discovered_at, item.submitted_at = discovered_at, submitted_at
     item.private_notes = lf(private_notes)
@@ -242,6 +250,31 @@ def finding_edit(
     if old_knowledge_id != knowledge_id:
         refresh_markdown(request, db, get_knowledge(db, knowledge_id))
     return RedirectResponse(item.url, status_code=303)
+
+
+@router.post("/findings/{finding_id}/paid")
+def finding_paid(
+    request: Request,
+    finding_id: str,
+    paid: str = Form("1"),
+    return_to: str = Form(""),
+    csrf: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Mark the reward of a submission as received (dated today) or as still owed."""
+    validate_csrf(request, csrf)
+    item = get_finding(db, finding_id)
+    item.is_paid = paid == "1"
+    if item.is_paid:
+        item.paid_at = item.paid_at or date.today().isoformat()
+    else:
+        item.paid_at = ""
+    db.commit()
+    refresh_markdown(request, db, get_knowledge(db, item.knowledge_id))
+    # Only local paths, so the form cannot be used as an open redirect.
+    local = return_to.startswith("/") and not return_to.startswith(("//", "/\\"))
+    target = return_to if local else item.url
+    return RedirectResponse(target, status_code=303)
 
 
 @router.post("/findings/{finding_id}/delete")

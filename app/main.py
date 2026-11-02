@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import agent
 from .config import Settings
 from .database import create_database, init_database
-from .routes import ai_export, auth, dashboard, evidence, findings, knowledge, programs, search, tags
+from .routes import ai_export, auth, dashboard, earnings, evidence, findings, knowledge, programs, search, tags
 from .web import STATIC_DIR, render
 
 CONTENT_SECURITY_POLICY = (
@@ -28,6 +28,7 @@ ROUTERS = (
     knowledge.router,
     evidence.router,
     findings.router,
+    earnings.router,
     agent.router,
 )
 

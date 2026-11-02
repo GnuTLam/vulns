@@ -290,7 +290,7 @@ def test_research_started_from_a_program_is_linked_through_the_finding_form(work
             "knowledge_id": knowledge_id,
             "target": "api.explorer.example",
             "scope": "Account export API",
-            "status": "ready_to_submit",
+            "status": "processing",
             "severity": "high",
             "report_id": "DRAFT-17",
             "discovered_at": "2026-09-16",
@@ -302,7 +302,7 @@ def test_research_started_from_a_program_is_linked_through_the_finding_form(work
     assert detail.status_code == 200
     assert 'id="program-explorer"' in detail.text
     assert "IDOR in account export" in detail.text
-    filtered = client.get("/findings", params={"status": "ready_to_submit", "program_id": program_id})
+    filtered = client.get("/findings", params={"status": "processing", "program_id": program_id})
     assert "api.explorer.example" in filtered.text
 
 
@@ -931,7 +931,9 @@ def link_bounty_finding(client: TestClient, token: str, program_id: str, knowled
         "knowledge_id": knowledge_id,
         "target": "api.example.com",
         "scope": "Web",
-        "status": "paid",
+        "status": "done",
+        "outcome": "accepted",
+        "is_paid": "1",
         "severity": "high",
         "report_id": "H1-900",
         "report_url": "",
@@ -970,7 +972,8 @@ def test_bounty_fields_round_trip_through_the_finding_form(workspace):
     assert 'name="payout" value="800' in form
     assert 'name="bonus" value="200' in form
     assert 'name="duplicate_of" value="H1-555"' in form
-    assert '<option value="USD" selected>USD</option>' in form
+    assert '<option value="USD" data-symbol="$" selected>$ USD</option>' in form
+    assert 'name="is_paid" value="1" checked' in form
     assert '<option value="medium" selected>' in form
 
 
@@ -982,7 +985,7 @@ def test_total_reward_and_response_gaps_are_derived(workspace):
 
     page = client.get(f"/programs/{program_id}").text
     # 800 payout + 200 bonus, and 2026-01-05 -> 01-08 -> 01-25 is 3 then 20 days.
-    assert "1000" in page
+    assert '<span class="num">1,000</span> <small>USD</small>' in page
     assert ">3<" in page
     assert ">20<" in page
 
@@ -1096,10 +1099,11 @@ def test_unrewarded_accepted_filter_accounts_for_bonus_only_awards(workspace):
     program_id = create_program(client, token, "Bonus Only")
     bonus_only = make_entry(client, token, title="Paid as a bonus")
     nothing = make_entry(client, token, title="Accepted but unpaid")
-    link_bounty_finding(client, token, program_id, bonus_only, status="accepted", payout="", bonus="150")
-    link_bounty_finding(client, token, program_id, nothing, status="accepted", payout="", bonus="")
+    accepted = {"status": "processing", "outcome": "accepted", "is_paid": "0"}
+    link_bounty_finding(client, token, program_id, bonus_only, payout="", bonus="150", **accepted)
+    link_bounty_finding(client, token, program_id, nothing, payout="", bonus="", **accepted)
 
-    page = client.get("/search?q=status:accepted+-has:reward+kind:knowledge").text
+    page = client.get("/search?q=outcome:accepted+-has:reward+kind:knowledge").text
     assert "Accepted but unpaid" in page
     # A bonus-only award still counts as rewarded.
     assert "Paid as a bonus" not in page
@@ -1301,11 +1305,14 @@ def test_accepted_unpaid_age_counts_from_triage_not_triage_duration():
     from app.models import Finding
 
     triaged = (date.today() - timedelta(days=12)).isoformat()
-    finding = Finding(status="accepted", submitted_at="2026-01-01", triaged_at=triaged)
+    finding = Finding(status="processing", outcome="accepted", submitted_at="2026-01-01", triaged_at=triaged)
     assert finding.days_awaiting_reward == 12
+    # Awarded but not yet received: the wait continues until the money arrives.
     finding.payout = 100.0
+    assert finding.days_awaiting_reward == 12
+    finding.is_paid = True
     assert finding.days_awaiting_reward is None
-    assert Finding(status="accepted").days_awaiting_reward is None
+    assert Finding(status="processing", outcome="accepted").days_awaiting_reward is None
 
 
 def test_dashboard_reports_nothing_waiting_when_the_queue_is_clear(workspace):
@@ -1602,7 +1609,6 @@ def test_secondary_ui_sections_use_progressive_disclosure(workspace):
         token,
         program_id,
         knowledge_id,
-        status="paid",
         payout="500",
         bonus="50",
     )
@@ -1639,12 +1645,12 @@ def test_findings_registry_summary_and_severity_filter(workspace):
     client, token, _data_dir = workspace
     program_id = create_program(client, token, "Registry Metrics Program")
     cases = [
-        ("Critical submitted", "critical", "submitted", ""),
-        ("High triaged", "high", "triaged", ""),
-        ("High accepted reward", "high", "accepted", "100"),
-        ("Low draft", "low", "draft", ""),
+        ("Critical submitted", "critical", "submitted", "", ""),
+        ("High triaged", "high", "processing", "", ""),
+        ("High accepted reward", "high", "done", "accepted", "100"),
+        ("Low draft", "low", "done", "duplicate", ""),
     ]
-    for title, severity, status, payout in cases:
+    for title, severity, status, outcome, payout in cases:
         knowledge_id = create_knowledge_custom(
             client,
             token,
@@ -1660,6 +1666,7 @@ def test_findings_registry_summary_and_severity_filter(workspace):
                 "target": "api.metrics.example",
                 "scope": "API",
                 "status": status,
+                "outcome": outcome,
                 "severity": severity,
                 "payout": payout,
                 "currency": "USD",

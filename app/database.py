@@ -3,11 +3,11 @@ import re
 import sqlite3
 from collections.abc import Iterable
 
-from sqlalchemy import Engine, create_engine, event, func, text
+from sqlalchemy import Engine, bindparam, create_engine, event, func, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Base, KnowledgeEntry, Tag, knowledge_relations, knowledge_tags
-from .taxonomy import parse_tags
+from .taxonomy import LEGACY_STATUSES, STATUSES, parse_tags
 
 KNOWLEDGE_COLUMNS = {
     "endpoint": "VARCHAR(500) NOT NULL DEFAULT ''",
@@ -29,6 +29,9 @@ FINDING_COLUMNS = {
     "currency": "VARCHAR(8) NOT NULL DEFAULT 'USD'",
     "program_severity": "VARCHAR(20) NOT NULL DEFAULT ''",
     "duplicate_of": "VARCHAR(160) NOT NULL DEFAULT ''",
+    "outcome": "VARCHAR(20) NOT NULL DEFAULT ''",
+    "is_paid": "BOOLEAN NOT NULL DEFAULT 0",
+    "paid_at": "VARCHAR(30) NOT NULL DEFAULT ''",
 }
 
 
@@ -61,6 +64,7 @@ def init_database(engine: Engine) -> None:
     with engine.begin() as connection:
         _ensure_columns(connection, "knowledge_entries", KNOWLEDGE_COLUMNS)
         _ensure_columns(connection, "findings", FINDING_COLUMNS)
+        _migrate_statuses(connection)
         _migrate_json_lists(connection)
         connection.execute(text("DROP TABLE IF EXISTS knowledge_fts"))
         connection.execute(
@@ -95,6 +99,31 @@ def init_database(engine: Engine) -> None:
         """)
         )
         _build_entity_index(connection)
+
+
+def _migrate_statuses(connection) -> None:
+    """Map the earlier lifecycle statuses onto status, outcome and the paid flag.
+
+    Rows already on a current status are left alone, so this runs on every start. An outcome
+    or paid flag the owner already set is kept.
+    """
+    for old, (status, outcome, paid) in LEGACY_STATUSES.items():
+        connection.execute(
+            text(
+                "UPDATE findings SET status = :status,"
+                " outcome = CASE WHEN outcome = '' THEN :outcome ELSE outcome END,"
+                " is_paid = CASE WHEN :paid THEN 1 ELSE is_paid END"
+                " WHERE status = :old"
+            ),
+            {"status": status, "outcome": outcome, "paid": paid, "old": old},
+        )
+    # Anything else unknown is treated as a submission still waiting on the program.
+    connection.execute(
+        text("UPDATE findings SET status = 'submitted' WHERE status NOT IN :statuses").bindparams(
+            bindparam("statuses", expanding=True)
+        ),
+        {"statuses": list(STATUSES)},
+    )
 
 
 def _json_list(raw) -> list:
@@ -153,7 +182,8 @@ ENTITY_INDEX_SOURCES = {
         "label": "target",
         "body": (
             "COALESCE(target,'')||' '||COALESCE(scope,'')||' '||COALESCE(report_id,'')"
-            "||' '||COALESCE(private_notes,'')||' '||COALESCE(status,'')||' '||COALESCE(duplicate_of,'')"
+            "||' '||COALESCE(private_notes,'')||' '||COALESCE(status,'')||' '||COALESCE(outcome,'')"
+            "||' '||COALESCE(duplicate_of,'')"
         ),
     },
 }

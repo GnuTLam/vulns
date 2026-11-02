@@ -13,12 +13,12 @@ Write tools call the same route handlers as the web forms, so validation, tag no
 
 | Tool | Purpose | Main input |
 | --- | --- | --- |
-| `get_overview` | Dashboard figures: counts, needs-attention queue, earnings per currency, response medians, breakdowns, AI export counts | none |
+| `get_overview` | Dashboard figures: counts, needs-attention queue, earnings per currency (total, paid, unpaid), response medians, breakdowns, AI export counts | none |
 | `search` | Find records with the search query language; an empty `query` with a `kind` lists the newest records | `query`, `kind`, `limit` (max 50), `offset` |
 | `get_record` | Every field of one record, including its links | `kind`, `id` |
 | `save_program` | Create a program, or update one when `id` is given | `name`, `platform`, `url`, `handle`, `notes`, `archived` |
 | `save_knowledge` | Create or update research; `source_markdown` imports a whole `.md` document as a draft | `title`, `bug_type`, `severity`, `markdown`, `tags`, `use_for_ai`, `draft`, `related_ids` |
-| `save_finding` | Link research to a program or update the submission; changing `program_id` moves it | `program_id`, `knowledge_id`, `status`, dates, `payout`, `bonus`, `currency` |
+| `save_finding` | Link research to a program or update the submission; changing `program_id` moves it | `program_id`, `knowledge_id`, `status` (`submitted` / `processing` / `done`), `outcome`, dates, `payout`, `bonus`, `currency` (`VND` / `EUR` / `USD`), `is_paid`, `paid_at` |
 | `delete_record` | Permanently delete a program, knowledge entry, finding or evidence file | `kind`, `id`, `confirm: true` |
 
 Behaviour common to all tools:

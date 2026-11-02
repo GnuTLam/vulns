@@ -32,7 +32,7 @@ from .routes.programs import program_create, program_delete, program_edit
 from .search import parse_query, plain_snippet, run_search
 from .security import authenticated, csrf_token
 from .stats import response_metrics, rewards_by_currency, workspace_snapshot
-from .taxonomy import BUG_TYPES, CURRENCIES, SEVERITIES, STATUSES
+from .taxonomy import BUG_TYPES, CURRENCIES, DEFAULT_CURRENCY, OUTCOMES, SEVERITIES, STATUSES
 from .web import refresh_markdown
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -57,17 +57,19 @@ Workflow:
 3. Write with save_program / save_knowledge / save_finding. On update send only the fields to change.
 4. delete_record is permanent; use it only when the user asked for a deletion.
 
-Lifecycle: not_submitted > draft > ready_to_submit > submitted > triaged > accepted > resolved > paid,
-or a terminal rejected / duplicate / informative / out_of_scope. Dates are YYYY-MM-DD.
-Money is never added across currencies."""
+Status: submitted > processing > done. outcome records what the program decided
+(accepted / duplicate / informative / rejected / out_of_scope, empty while undecided).
+is_paid marks a recorded bounty as received; paid_at is when. Dates are YYYY-MM-DD.
+Currencies are VND, EUR and USD. Money is never added across currencies."""
 
 QUERY_HELP = (
     "Query language (same as the app's search box). Words are ANDed and prefix-matched; "
     '"exact phrase"; -word excludes. Fields: sev:critical status:submitted type:xss cwe:79 '
-    "tag:jwt tech:graphql program:acme endpoint:/oauth target:api. currency:USD cvss:>=8 payout:>500 "
-    "after:2026-01-01 before:2026-07-01. Flags: is:open|draft|ai|submitted|accepted|paid|rewarded|"
-    "downgraded|duplicate|orphan|linked|archived, has:tags|poc|evidence|cvss|payout|notes|remediation|"
-    "reference|program|cwe|bonus|reward. Prefix any filter with - to negate it."
+    "outcome:duplicate tag:jwt tech:graphql program:acme endpoint:/oauth target:api. currency:VND cvss:>=8 "
+    "payout:>500 after:2026-01-01 before:2026-07-01. Flags: is:open|draft|ai|submitted|processing|done|"
+    "accepted|paid|unpaid|rewarded|downgraded|duplicate|orphan|linked|archived, "
+    "has:tags|poc|evidence|cvss|payout|notes|remediation|reference|program|cwe|bonus|reward. "
+    "Prefix any filter with - to negate it."
 )
 
 _ID = {"type": "string", "description": "Record id (UUID) from search or get_record."}
@@ -197,7 +199,8 @@ TOOLS: list[dict] = [
             "A finding links one knowledge entry to one program and tracks that submission. "
             "Without id: create (program_id, knowledge_id required; each pair at most once). With "
             "id: update only the fields you send; changing program_id moves it. Record the bounty "
-            "with payout, bonus and currency; send null to clear an amount. program_severity is "
+            "with payout, bonus and currency (send null to clear an amount) and is_paid once the "
+            "money arrives. outcome is what the program decided. program_severity is "
             "the rating the program assigned when it differs from yours."
         ),
         "inputSchema": {
@@ -207,6 +210,7 @@ TOOLS: list[dict] = [
                 "program_id": _ID,
                 "knowledge_id": _ID,
                 "status": {"type": "string", "enum": list(STATUSES)},
+                "outcome": {"type": "string", "enum": list(OUTCOMES)},
                 "severity": {"type": "string", "enum": list(SEVERITIES)},
                 "target": {"type": "string", "description": "Affected host or URL."},
                 "scope": {"type": "string"},
@@ -220,6 +224,8 @@ TOOLS: list[dict] = [
                 "payout": {"type": ["number", "null"], "minimum": 0},
                 "bonus": {"type": ["number", "null"], "minimum": 0},
                 "currency": {"type": "string", "enum": list(CURRENCIES)},
+                "is_paid": {"type": "boolean", "description": "The awarded bounty has been received."},
+                "paid_at": _DATE,
                 "program_severity": {"type": "string", "enum": ["", *SEVERITIES]},
                 "duplicate_of": {"type": "string", "description": "Their reference for the original report."},
                 "private_notes": {"type": "string"},
@@ -318,11 +324,13 @@ def finding_row(finding: Finding) -> dict:
         "title": finding.knowledge.title if finding.knowledge else "",
         "program": finding.program.name if finding.program else "",
         "status": finding.status,
+        "outcome": finding.outcome,
         "severity": finding.severity,
         "target": finding.target,
         "report_id": finding.report_id,
         "total_reward": finding.total_reward,
         "currency": finding.currency,
+        "is_paid": finding.is_paid,
         "link": finding.url,
     }
 
@@ -334,6 +342,7 @@ def finding_detail(finding: Finding) -> dict:
         "program": {"id": finding.program_id, "name": finding.program.name if finding.program else ""},
         "knowledge": {"id": finding.knowledge_id, "title": finding.knowledge.title if finding.knowledge else ""},
         "status": finding.status,
+        "outcome": finding.outcome,
         "severity": finding.severity,
         "program_severity": finding.program_severity,
         "effective_severity": finding.effective_severity,
@@ -350,6 +359,8 @@ def finding_detail(finding: Finding) -> dict:
         "bonus": finding.bonus,
         "currency": finding.currency,
         "total_reward": finding.total_reward,
+        "is_paid": finding.is_paid,
+        "paid_at": finding.paid_at,
         "duplicate_of": finding.duplicate_of,
         "days_waiting": finding.days_waiting,
         "days_to_triage": finding.days_to_triage,
@@ -507,7 +518,11 @@ def tool_get_overview(db: Session, _request: Request, _args: dict) -> dict:
                 "newest_first": [{**_entry_ref(e), "link": f"/knowledge/{e.id}"} for e in snap["drafts"]],
             },
         },
-        "earnings": [{"currency": code, "amount": amount} for code, amount in snap["earnings"]],
+        "earnings": [
+            # "amount" is the total, kept for clients written against earlier versions.
+            {"amount": row["total"], **{key: row[key] for key in ("currency", "total", "paid", "unpaid", "count")}}
+            for row in snap["earnings_split"]
+        ],
         "median_days_to_triage": metrics["median_triage_days"],
         "median_days_to_bounty": metrics["median_reward_days"],
         "downgraded_by_program": metrics["downgraded_count"],
@@ -523,7 +538,7 @@ def tool_get_overview(db: Session, _request: Request, _args: dict) -> dict:
 
 _SEARCH_KEYS = {
     "knowledge": ("severity", "bug_type", "cwe", "cvss", "tags", "is_draft", "programs", "evidence_count"),
-    "finding": ("program", "target", "severity", "status", "report_id", "payout"),
+    "finding": ("program", "target", "severity", "status", "outcome", "report_id", "payout"),
     "program": ("platform", "handle", "archived", "finding_count"),
 }
 
@@ -781,6 +796,7 @@ _BOUNTY = (
     "currency",
     "program_severity",
     "duplicate_of",
+    "paid_at",
 )
 
 
@@ -801,11 +817,15 @@ def tool_save_finding(db: Session, request: Request, args: dict) -> dict:
     knowledge_severity = None
     if current is None and "severity" not in args:
         knowledge_severity = _load(db, "knowledge", args["knowledge_id"]).default_severity
-    bounty = build_bounty(**{name: _text(pick(name, "USD" if name == "currency" else "")) for name in _BOUNTY})
+    bounty = build_bounty(
+        **{name: _text(pick(name, DEFAULT_CURRENCY if name == "currency" else "")) for name in _BOUNTY},
+        is_paid=bool(pick("is_paid", False)),
+    )
     fields = {
         "program_id": pick("program_id"),
         "knowledge_id": pick("knowledge_id"),
-        "status": pick("status", "not_submitted"),
+        "status": pick("status", "submitted"),
+        "outcome": pick("outcome", ""),
         "severity": pick("severity", knowledge_severity or "medium"),
         **{name: _text(pick(name)) for name in _FINDING_TEXT},
         "bounty": bounty,

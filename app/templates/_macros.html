@@ -12,12 +12,27 @@
   {% endif %}
 {%- endmacro %}
 
+{# An amount with its currency icon (VND, EUR, USD) and code. #}
+{% macro money(amount, currency) -%}
+  <span class="money cur-{{ currency|lower }}">
+    {%- if currency in currency_symbols %}<i class="cur-icon" aria-hidden="true">{{ currency_symbols[currency] }}</i>{% endif -%}
+    <span class="num">{{ amount|money(currency) }}</span> <small>{{ currency }}</small>
+  </span>
+{%- endmacro %}
+
+{# Whether a recorded reward has been received; nothing when no reward is recorded. #}
+{% macro paid_badge(finding) -%}
+  {% if finding.total_reward is not none %}
+    <span class="paid-badge {{ 'is-paid' if finding.is_paid else 'is-unpaid' }}">{{ tr.paid if finding.is_paid else tr.unpaid }}</span>
+  {% endif %}
+{%- endmacro %}
+
 {# Reward and response-time facts of a submission; renders nothing when none are known. #}
 {% macro reward_facts(finding) -%}
   {% if finding.total_reward is not none %}
     <div>
       <p class="k">{{ tr.total_reward }}</p>
-      <p class="v num">{{ '%g'|format(finding.total_reward) }} <small>{{ finding.currency }}</small></p>
+      <p class="v">{{ money(finding.total_reward, finding.currency) }} {{ paid_badge(finding) }}</p>
     </div>
   {% endif %}
   {% for label, days in [(tr.days_to_triage, finding.days_to_triage), (tr.days_to_reward, finding.days_to_reward), (tr.days_to_resolve, finding.days_to_resolve)] %}

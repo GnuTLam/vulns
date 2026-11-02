@@ -52,6 +52,12 @@
                 <path d="M6 8l1.6 1.6L10.5 6.8" />
               </svg>{{ tr.findings }}
             </a>
+            <a class="nav-item {{ 'active' if active == 'earnings' }}" href="/earnings">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <path d="M2.5 13.5h11" />
+                <path d="M4 11V8.5M7 11V5.5M10 11V7M13 11V3.5" />
+              </svg>{{ tr.earnings }}
+            </a>
             <a class="nav-item {{ 'active' if active == 'knowledge' }}" href="/knowledge">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M3 3.5h4.2a1.8 1.8 0 0 1 1.8 1.8V14a1.5 1.5 0 0 0-1.5-1.5H3z" />
@@ -119,7 +125,7 @@
                        href="{{ finding.url }}"
                        data-finding-name="{{ finding.knowledge.title|lower }}">
                       <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
-                      <span><strong>{{ finding.knowledge.title }}</strong><small>{{ humanize(finding.status) }}</small></span>
+                      <span><strong>{{ finding.knowledge.title }}</strong><small>{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</small></span>
                     </a>
                   {% else %}
                     <p class="explorer-empty">{{ tr.empty }}</p>

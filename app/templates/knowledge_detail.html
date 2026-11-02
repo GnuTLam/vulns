@@ -172,13 +172,13 @@
                     <strong>{{ finding.program.name }}</strong>
                     <small>
                       {{- finding.target or finding.scope or '—' }}
-                      {%- if finding.total_reward is not none %} · {{ '%g'|format(finding.total_reward) }} {{ finding.currency }}{% endif %}
+                      {%- if finding.total_reward is not none %} · {{ ui.money(finding.total_reward, finding.currency) }} {{ ui.paid_badge(finding) }}{% endif %}
                       {%- if finding.severity_delta < 0 %} · {{ tr.downgraded }} → {{ humanize(finding.program_severity) }}
                       {%- elif finding.severity_delta > 0 %} · {{ tr.upgraded }} → {{ humanize(finding.program_severity) }}
                       {%- endif -%}
                     </small>
                   </span>
-                  <span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span>
+                  <span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span>
                 </a>
               {% endfor %}
             </div>

@@ -197,9 +197,8 @@
                     <div class="file-type">{{ item.filename.rsplit('.', 1)[-1][:4]|upper }}</div>
                   {% endif %}
                   <div><strong>{{ item.filename }}</strong><small>{{ (item.size_bytes / 1024)|round(1) }} KB</small></div>
-                  {% if is_image %}
-                    <button type="button" class="text-action" data-insert-evidence data-url="/evidence/{{ item.id }}" data-name="{{ item.filename }}">{{ tr.insert }}</button>
-                  {% endif %}
+                  <button type="button" class="text-action" data-insert-evidence data-url="/evidence/{{ item.id }}" data-name="{{ item.filename }}"
+                          data-kind="{{ 'image' if is_image else 'video' if item.mime_type.startswith('video/') else 'file' }}">{{ tr.insert }}</button>
                 </article>
               {% endfor %}
             </div>

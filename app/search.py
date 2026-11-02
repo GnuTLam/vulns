@@ -33,7 +33,7 @@ from .database import (
     fts_knowledge_matches,
 )
 from .models import Finding, KnowledgeEntry, Program, Tag
-from .taxonomy import SEVERITIES, normalize_tag
+from .taxonomy import CLOSED_STATUSES, SEVERITIES, normalize_tag
 
 KINDS = ("knowledge", "finding", "program")
 
@@ -43,6 +43,8 @@ FIELD_ALIASES: dict[str, str] = {
     "sev": "severity",
     "status": "status",
     "state": "status",
+    "outcome": "outcome",
+    "result": "outcome",
     "type": "bug_type",
     "bug": "bug_type",
     "bugtype": "bug_type",
@@ -86,7 +88,10 @@ IS_VALUES = (
     "orphan",
     "archived",
     "submitted",
+    "processing",
+    "done",
     "paid",
+    "unpaid",
     "accepted",
     "open",
     "rewarded",
@@ -330,10 +335,6 @@ def describe(parsed: ParsedQuery) -> list[str]:
     return chips
 
 
-# Statuses that no longer need attention; `is:open` is the complement.
-CLOSED_STATUSES = ("rejected", "duplicate", "out_of_scope", "informative", "archived", "paid", "resolved")
-
-
 def highlight(raw_snippet: str) -> Markup:
     """Escape an FTS snippet, then turn its highlight markers into <mark>.
 
@@ -403,6 +404,11 @@ def _rewarded():
     return or_(Finding.payout.isnot(None), Finding.bonus.isnot(None))
 
 
+def _unpaid():
+    """A reward is recorded but has not been received."""
+    return and_(_rewarded(), Finding.is_paid.is_(False))
+
+
 @dataclass(frozen=True)
 class KindFilters:
     """SQL for every filter one record kind understands; a filter missing here cannot be answered."""
@@ -423,6 +429,7 @@ KNOWLEDGE_FILTERS = KindFilters(
         # Program, status and target live on findings, so they become existence checks.
         "program": lambda value: KnowledgeEntry.findings.any(Finding.program.has(Program.name.ilike(_like(value)))),
         "status": lambda value: KnowledgeEntry.findings.any(Finding.status == value.casefold()),
+        "outcome": lambda value: KnowledgeEntry.findings.any(Finding.outcome == value.casefold()),
         "target": lambda value: KnowledgeEntry.findings.any(Finding.target.ilike(_like(value))),
         "program_id": lambda value: KnowledgeEntry.findings.any(Finding.program_id == value),
         "currency": lambda value: KnowledgeEntry.findings.any(Finding.currency == value.upper()),
@@ -438,9 +445,12 @@ KNOWLEDGE_FILTERS = KindFilters(
             "archived": lambda: KnowledgeEntry.findings.any(Finding.program.has(Program.archived.is_(True))),
             "open": lambda: KnowledgeEntry.findings.any(Finding.status.notin_(CLOSED_STATUSES)),
             "submitted": lambda: KnowledgeEntry.findings.any(Finding.status == "submitted"),
-            "paid": lambda: KnowledgeEntry.findings.any(Finding.status == "paid"),
-            "accepted": lambda: KnowledgeEntry.findings.any(Finding.status == "accepted"),
-            "duplicate": lambda: KnowledgeEntry.findings.any(Finding.status == "duplicate"),
+            "processing": lambda: KnowledgeEntry.findings.any(Finding.status == "processing"),
+            "done": lambda: KnowledgeEntry.findings.any(Finding.status == "done"),
+            "paid": lambda: KnowledgeEntry.findings.any(Finding.is_paid.is_(True)),
+            "unpaid": lambda: KnowledgeEntry.findings.any(_unpaid()),
+            "accepted": lambda: KnowledgeEntry.findings.any(Finding.outcome == "accepted"),
+            "duplicate": lambda: KnowledgeEntry.findings.any(Finding.outcome == "duplicate"),
             "rewarded": lambda: KnowledgeEntry.findings.any(_rewarded()),
             "downgraded": lambda: KnowledgeEntry.findings.any(_downgraded_clause()),
         },
@@ -469,6 +479,7 @@ FINDING_FILTERS = KindFilters(
     fields={
         "severity": lambda value: Finding.severity == value.casefold(),
         "status": lambda value: Finding.status == value.casefold(),
+        "outcome": lambda value: Finding.outcome == value.casefold(),
         "program": lambda value: Finding.program.has(Program.name.ilike(_like(value))),
         "target": lambda value: Finding.target.ilike(_like(value)),
         "program_id": lambda value: Finding.program_id == value,
@@ -483,11 +494,13 @@ FINDING_FILTERS = KindFilters(
         "is": {
             "open": lambda: Finding.status.notin_(CLOSED_STATUSES),
             "submitted": lambda: Finding.status == "submitted",
-            "paid": lambda: Finding.status == "paid",
-            "accepted": lambda: Finding.status == "accepted",
+            "processing": lambda: Finding.status == "processing",
+            "done": lambda: Finding.status == "done",
+            "paid": lambda: Finding.is_paid.is_(True),
+            "unpaid": _unpaid,
+            "accepted": lambda: Finding.outcome == "accepted",
             "archived": lambda: Finding.program.has(Program.archived.is_(True)),
-            "draft": lambda: Finding.status == "draft",
-            "duplicate": lambda: Finding.status == "duplicate",
+            "duplicate": lambda: Finding.outcome == "duplicate",
             "rewarded": _rewarded,
             "downgraded": _downgraded_clause,
         },
@@ -686,6 +699,7 @@ def _search_findings(session: Session, parsed: ParsedQuery, limit: int) -> tuple
                 "target": finding.target,
                 "severity": finding.severity,
                 "status": finding.status,
+                "outcome": finding.outcome,
                 "report_id": finding.report_id,
                 "payout": finding.payout,
                 "updated_at": finding.updated_at,
@@ -699,7 +713,7 @@ def _search_findings(session: Session, parsed: ParsedQuery, limit: int) -> tuple
 
 
 def _finding_haystack(finding: Finding) -> str:
-    parts = [finding.target, finding.scope, finding.report_id, finding.private_notes, finding.status]
+    parts = [finding.target, finding.scope, finding.report_id, finding.private_notes, finding.status, finding.outcome]
     if finding.knowledge:
         parts += [finding.knowledge.title, finding.knowledge.summary]
     if finding.program:

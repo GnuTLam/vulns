@@ -28,7 +28,7 @@
       </div>
       <div>
         <p class="k">{{ tr.accepted }}</p>
-        <p class="v num">{{ program.findings|selectattr('status', 'equalto', 'accepted')|list|length }}</p>
+        <p class="v num">{{ program.findings|selectattr('outcome', 'equalto', 'accepted')|list|length }}</p>
       </div>
       <div>
         <p class="k">{{ tr.handle }}</p>
@@ -54,7 +54,7 @@
           <div>
             <p class="k">{{ tr.earnings }}</p>
             {% for code, amount in earnings %}
-              <p class="v num">{{ '%g'|format(amount) }} <small>{{ code }}</small></p>
+              <p class="v">{{ ui.money(amount, code) }}</p>
             {% else %}
               <p class="v muted">{{ tr.not_rewarded_yet }}</p>
             {% endfor %}
@@ -111,7 +111,7 @@
                     </td>
                     <td class="mono-cell">{{ finding.target or '—' }}</td>
                     <td><span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span></td>
-                    <td><span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span></td>
+                    <td><span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span></td>
                     <td class="mono-cell">{{ finding.updated_at.strftime("%Y-%m-%d") }}</td>
                   </tr>
                 {% endfor %}

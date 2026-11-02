@@ -8,7 +8,7 @@ from fastapi import Form, HTTPException
 from sqlalchemy.orm import Session
 
 from .models import Finding, Program
-from .taxonomy import BUG_TYPES, CURRENCIES, DEFAULT_CURRENCY, SEVERITIES
+from .taxonomy import BUG_TYPES, CURRENCIES, DEFAULT_CURRENCY, LEGACY_CURRENCIES, SEVERITIES
 
 
 def lf(value: str) -> str:
@@ -132,6 +132,8 @@ class BountyRecord:
     currency: str
     program_severity: str
     duplicate_of: str
+    is_paid: bool = False
+    paid_at: str = ""
 
 
 def build_bounty(
@@ -143,10 +145,14 @@ def build_bounty(
     currency: str,
     program_severity: str,
     duplicate_of: str,
+    is_paid: bool = False,
+    paid_at: str = "",
 ) -> BountyRecord:
+    """Validated bounty fields. Legacy currencies pass here; ``check_currency`` limits them to existing rows."""
     clean_currency = currency.strip().upper() or DEFAULT_CURRENCY
-    if clean_currency not in CURRENCIES:
+    if clean_currency not in CURRENCIES and clean_currency not in LEGACY_CURRENCIES:
         raise HTTPException(status_code=422, detail="Unsupported currency")
+    clean_paid_at = optional_date(paid_at, "Paid date")
     clean_program_severity = program_severity.strip().lower()
     if clean_program_severity and clean_program_severity not in SEVERITIES:
         raise HTTPException(status_code=422, detail="Invalid program severity")
@@ -159,6 +165,9 @@ def build_bounty(
         currency=clean_currency,
         program_severity=clean_program_severity,
         duplicate_of=duplicate_of.strip(),
+        # A payment date means the money arrived.
+        is_paid=bool(is_paid or clean_paid_at),
+        paid_at=clean_paid_at,
     )
 
 
@@ -171,9 +180,28 @@ def bounty_fields(
     currency: str = Form(DEFAULT_CURRENCY),
     program_severity: str = Form(""),
     duplicate_of: str = Form(""),
+    is_paid: list[str] | None = Form(None),
+    paid_at: str = Form(""),
 ) -> BountyRecord:
     """Bounty fields as named on the finding form."""
-    return build_bounty(triaged_at, resolved_at, rewarded_at, payout, bonus, currency, program_severity, duplicate_of)
+    return build_bounty(
+        triaged_at,
+        resolved_at,
+        rewarded_at,
+        payout,
+        bonus,
+        currency,
+        program_severity,
+        duplicate_of,
+        is_paid=bool(checkbox(is_paid)),
+        paid_at=paid_at,
+    )
+
+
+def check_currency(bounty: BountyRecord, existing: str = "") -> None:
+    """New rewards use an offered currency; a record keeps the legacy currency it already has."""
+    if bounty.currency not in CURRENCIES and bounty.currency != existing:
+        raise HTTPException(status_code=422, detail="Unsupported currency")
 
 
 def apply_bounty(finding: Finding, bounty: BountyRecord) -> None:
@@ -185,6 +213,8 @@ def apply_bounty(finding: Finding, bounty: BountyRecord) -> None:
     finding.currency = bounty.currency
     finding.program_severity = bounty.program_severity
     finding.duplicate_of = bounty.duplicate_of
+    finding.is_paid = bounty.is_paid
+    finding.paid_at = bounty.paid_at
 
 
 def finding_dates(discovered_at: str, submitted_at: str, bounty: BountyRecord) -> tuple[str, str]:
@@ -198,6 +228,7 @@ def finding_dates(discovered_at: str, submitted_at: str, bounty: BountyRecord) -
             ("Triaged date", bounty.triaged_at),
             ("Resolved date", bounty.resolved_at),
             ("Rewarded date", bounty.rewarded_at),
+            ("Paid date", bounty.paid_at),
         ):
             if value and value < submitted:
                 raise HTTPException(status_code=422, detail=f"{label} cannot be before submitted date")

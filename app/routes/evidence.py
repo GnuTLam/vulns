@@ -10,21 +10,9 @@ from sqlalchemy.orm import Session
 
 from ..models import Evidence, KnowledgeEntry
 from ..security import safe_filename, validate_csrf
-from ..web import get_db, get_knowledge, require_auth
+from ..web import SAFE_INLINE_TYPES, get_db, get_knowledge, require_auth
 
 router = APIRouter(dependencies=[Depends(require_auth)])
-
-# Types the browser may display; everything else is downloaded.
-SAFE_INLINE_TYPES = {
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-    "video/mp4",
-    "video/webm",
-    "audio/mpeg",
-    "audio/ogg",
-}
 
 
 async def store_evidence_files(

@@ -239,6 +239,28 @@ TRANSLATIONS: dict[str, str] = {
     "not_rewarded_yet": "No bounty recorded yet",
     "earnings": "Earnings",
     "days": "days",
+    "outcome": "Outcome",
+    "outcome_pending": "Not decided yet",
+    "outcome_help": "What the program decided. Keep the status at Done once nothing more will happen.",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "paid_received": "Payment received",
+    "paid_help": "Leave unticked while the bounty is awarded but the money has not arrived.",
+    "paid_at": "Paid on",
+    "mark_paid": "Mark paid",
+    "period": "Period",
+    "all_time": "All time",
+    "by_month": "By month",
+    "by_year": "By year",
+    "by_program": "By program",
+    "average": "avg",
+    "largest": "max",
+    "still_owed": "Still owed",
+    "days_owed": "Days waiting",
+    "nothing_owed": "Every recorded bounty has been paid.",
+    "no_earnings": "No bounties recorded yet",
+    "no_earnings_help": "Add a payout to a vulnerability and its earnings appear here, per currency.",
+    "no_earnings_in_period": "No bounties in this period.",
     "no_response_data": "Not enough dates recorded yet.",
     "response_timing_unavailable": "Response times appear once submission and triage dates are recorded.",
     "delete_program_hint": (
@@ -279,7 +301,7 @@ TRANSLATIONS: dict[str, str] = {
     "draft_notice": "This is a quick-capture draft. Edit and save to triage it into a full entry.",
 }
 
-# Bug types are stored in display form already, so only statuses and severities need labels.
+# Bug types are stored in display form already, so only statuses, outcomes and severities need labels.
 TERMS: dict[str, str] = {
     "informational": "Informational",
     "low": "Low",
@@ -287,17 +309,14 @@ TERMS: dict[str, str] = {
     "high": "High",
     "critical": "Critical",
     "draft": "Draft",
-    "not_submitted": "Not submitted",
-    "ready_to_submit": "Ready to submit",
     "submitted": "Submitted",
-    "triaged": "Triaged",
+    "processing": "Processing",
+    "done": "Done",
     "accepted": "Accepted",
     "rejected": "Rejected",
     "duplicate": "Duplicate",
     "informative": "Informative",
     "out_of_scope": "Out of scope",
-    "resolved": "Resolved",
-    "paid": "Paid",
     "archived": "Archived",
 }
 

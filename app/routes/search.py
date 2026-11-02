@@ -13,8 +13,8 @@ router = APIRouter(dependencies=[Depends(require_auth)])
 # Preset lookups, written in the query language so they double as syntax examples.
 SAVED_FILTERS = (
     ("needs_triage", "is:draft"),
-    ("awaiting_response", "is:open -status:draft -status:not_submitted"),
-    ("unpaid_accepted", "status:accepted -has:reward"),
+    ("awaiting_response", "is:open"),
+    ("unpaid_accepted", "outcome:accepted -is:paid"),
     ("downgraded", "is:downgraded"),
 )
 

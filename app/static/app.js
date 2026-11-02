@@ -269,6 +269,18 @@
   };
   initReportReaders();
 
+  // The amount fields of a bounty show the icon of the chosen currency.
+  document.querySelectorAll('[data-currency-select]').forEach((select) => {
+    const icons = select.form.querySelectorAll('[data-currency-icon]');
+    select.addEventListener('change', () => {
+      const option = select.selectedOptions[0];
+      icons.forEach((icon) => {
+        icon.textContent = option.dataset.symbol || option.value;
+        icon.className = `cur-icon cur-${option.value.toLowerCase()}`;
+      });
+    });
+  });
+
   const openRecordPanel = (url, trigger) => {
     if (!drawer) return;
     panelReturnFocus = trigger || null;
@@ -725,7 +737,10 @@
 
     editor.querySelectorAll('[data-insert-evidence]').forEach((button) =>
       button.addEventListener('click', () => {
-        insertAtCursor(`\n![${button.dataset.name}](${button.dataset.url})\n`);
+        // Brackets in a filename would end the link text early.
+        const name = button.dataset.name.replace(/[[\]\\]/g, '\\$&');
+        const { url, kind } = button.dataset;
+        insertAtCursor(kind === 'file' ? `\n[${name}](${url}?download=true)\n` : `\n![${name}](${url})\n`);
         activate('write');
       }),
     );

@@ -6,7 +6,10 @@
   {% set has_submission = finding and (finding.report_id or finding.report_url or finding.discovered_at
      or finding.submitted_at or finding.private_notes) %}
   {% set has_bounty = finding and (finding.triaged_at or finding.resolved_at or finding.rewarded_at
-     or finding.payout is not none or finding.bonus is not none or finding.program_severity or finding.duplicate_of) %}
+     or finding.payout is not none or finding.bonus is not none or finding.program_severity or finding.duplicate_of
+     or finding.is_paid) %}
+  {% set current_currency = finding.currency if finding else default_currency %}
+  {% set currency_options = currencies if current_currency in currencies else [current_currency] + currencies|list %}
   <div class="toolbar">
     <div class="crumbs">
       <a href="{{ back_url }}">{{ tr.findings }}</a><i>/</i><strong>{{ tr.edit if finding else tr.new_finding }}</strong>
@@ -43,9 +46,18 @@
               {{ tr.status }}
               <select name="status" required>
                 {% for item in statuses %}
-                  <option value="{{ item }}" {{ 'selected' if (finding.status if finding else 'draft') == item }}>{{ humanize(item) }}</option>
+                  <option value="{{ item }}" {{ 'selected' if (finding.status if finding else 'submitted') == item }}>{{ humanize(item) }}</option>
                 {% endfor %}
               </select>
+            </label>
+            <label>
+              {{ tr.outcome }}
+              <select name="outcome">
+                {% for item in outcomes %}
+                  <option value="{{ item }}" {{ 'selected' if (finding.outcome if finding else '') == item }}>{{ humanize(item) if item else tr.outcome_pending }}</option>
+                {% endfor %}
+              </select>
+              <small class="field-hint">{{ tr.outcome_help }}</small>
             </label>
             <label>
               {{ tr.severity }}
@@ -113,19 +125,35 @@
               </label>
               <label>
                 {{ tr.currency }}
-                <select name="currency">
-                  {% for code in currencies %}
-                    <option value="{{ code }}" {{ 'selected' if (finding.currency if finding else default_currency) == code }}>{{ code }}</option>
+                <select name="currency" data-currency-select>
+                  {% for code in currency_options %}
+                    <option value="{{ code }}" data-symbol="{{ currency_symbols.get(code, '') }}" {{ 'selected' if current_currency == code }}>
+                      {{- (currency_symbols[code] ~ ' ' if code in currency_symbols) ~ code -}}
+                    </option>
                   {% endfor %}
                 </select>
               </label>
+              {% for name, label in [("payout", tr.base_payout), ("bonus", tr.bonus)] %}
+                {% set amount = finding[name] if finding else none %}
+                <label>
+                  {{ label }}
+                  <span class="money-input">
+                    <i class="cur-icon cur-{{ current_currency|lower }}" aria-hidden="true" data-currency-icon>{{ currency_symbols.get(current_currency, current_currency) }}</i>
+                    <input type="number" step="any" min="0" name="{{ name }}" value="{{ amount|money_input if amount is not none else '' }}" placeholder="0">
+                  </span>
+                </label>
+              {% endfor %}
+              <div class="field-block">
+                <input type="hidden" name="is_paid" value="0">
+                <label class="check-row">
+                  <input type="checkbox" name="is_paid" value="1" {{ 'checked' if finding and finding.is_paid }}>
+                  <span>{{ tr.paid_received }}</span>
+                </label>
+                <small class="field-hint">{{ tr.paid_help }}</small>
+              </div>
               <label>
-                {{ tr.base_payout }}
-                <input type="number" step="0.01" min="0" name="payout" value="{{ finding.payout if finding and finding.payout is not none else '' }}" placeholder="0.00">
-              </label>
-              <label>
-                {{ tr.bonus }}
-                <input type="number" step="0.01" min="0" name="bonus" value="{{ finding.bonus if finding and finding.bonus is not none else '' }}" placeholder="0.00">
+                {{ tr.paid_at }}
+                <input type="date" name="paid_at" value="{{ finding.paid_at if finding else '' }}">
               </label>
               <label>
                 {{ tr.program_severity }}

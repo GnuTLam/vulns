@@ -15,7 +15,7 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def _day_gap(start: str, end: str) -> int | None:
+def day_gap(start: str, end: str) -> int | None:
     """Whole days between two ``YYYY-MM-DD`` strings; ``None`` when missing, malformed or negative."""
     if not start or not end:
         return None
@@ -129,7 +129,9 @@ class Finding(Base):
     knowledge_id: Mapped[str] = mapped_column(ForeignKey("knowledge_entries.id", ondelete="CASCADE"), index=True)
     target: Mapped[str] = mapped_column(String(500), default="")
     scope: Mapped[str] = mapped_column(String(500), default="")
-    status: Mapped[str] = mapped_column(String(30), default="not_submitted", index=True)
+    status: Mapped[str] = mapped_column(String(30), default="submitted", index=True)
+    # The program's decision; empty while undecided.
+    outcome: Mapped[str] = mapped_column(String(20), default="", server_default="", index=True)
     severity: Mapped[str] = mapped_column(String(20), default="medium", index=True)
     report_id: Mapped[str] = mapped_column(String(160), default="")
     report_url: Mapped[str] = mapped_column(String(500), default="")
@@ -142,6 +144,9 @@ class Finding(Base):
     payout: Mapped[float | None] = mapped_column(Float, nullable=True)
     bonus: Mapped[float | None] = mapped_column(Float, nullable=True)
     currency: Mapped[str] = mapped_column(String(8), default=DEFAULT_CURRENCY, server_default=DEFAULT_CURRENCY)
+    # Whether the awarded money has been received, and when.
+    is_paid: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", index=True)
+    paid_at: Mapped[str] = mapped_column(String(30), default="", server_default="")
     # Severity assigned by the program; empty when it matches ours.
     program_severity: Mapped[str] = mapped_column(String(20), default="", server_default="")
     # Their reference for the original report when closed as a duplicate.
@@ -171,32 +176,45 @@ class Finding(Base):
         return (self.payout or 0.0) + (self.bonus or 0.0)
 
     @property
+    def is_unpaid(self) -> bool:
+        """A reward is recorded but the money has not been received."""
+        return self.total_reward is not None and not self.is_paid
+
+    @property
+    def earned_on(self) -> str:
+        """The day a reward counts towards: paid, awarded, resolved or submitted, whichever is known first."""
+        for value in (self.paid_at, self.rewarded_at, self.resolved_at, self.submitted_at):
+            if value:
+                return value[:10]
+        return self.updated_at.date().isoformat() if self.updated_at else ""
+
+    @property
     def days_to_triage(self) -> int | None:
         """Calendar days from submission to the program's first triage decision."""
-        return _day_gap(self.submitted_at, self.triaged_at)
+        return day_gap(self.submitted_at, self.triaged_at)
 
     @property
     def days_to_reward(self) -> int | None:
         """Calendar days from submission to the bounty being awarded."""
-        return _day_gap(self.submitted_at, self.rewarded_at)
+        return day_gap(self.submitted_at, self.rewarded_at)
 
     @property
     def days_to_resolve(self) -> int | None:
-        return _day_gap(self.submitted_at, self.resolved_at)
+        return day_gap(self.submitted_at, self.resolved_at)
 
     @property
     def days_waiting(self) -> int | None:
         """Days since submission while the program has not triaged the report."""
         if self.triaged_at or not self.submitted_at:
             return None
-        return _day_gap(self.submitted_at, date.today().isoformat())
+        return day_gap(self.submitted_at, date.today().isoformat())
 
     @property
     def days_awaiting_reward(self) -> int | None:
-        """Days since triage for a report with no reward recorded yet."""
-        if self.total_reward is not None or not self.triaged_at:
+        """Days since triage for an accepted report whose money has not arrived."""
+        if self.is_paid or not self.triaged_at:
             return None
-        return _day_gap(self.triaged_at, date.today().isoformat())
+        return day_gap(self.triaged_at, date.today().isoformat())
 
     @property
     def effective_severity(self) -> str:

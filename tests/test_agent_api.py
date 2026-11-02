@@ -101,7 +101,9 @@ def test_full_workflow_through_the_session_transport(agent):
     status, paid = call(
         "save_finding",
         id=finding["id"],
-        status="paid",
+        status="done",
+        outcome="accepted",
+        is_paid=True,
         triaged_at="2026-09-03",
         rewarded_at="2026-09-20",
         payout=1500,
@@ -109,11 +111,14 @@ def test_full_workflow_through_the_session_transport(agent):
     )
     assert status == 200, paid
     assert paid["finding"]["total_reward"] == 1500
+    assert paid["finding"]["outcome"] == "accepted" and paid["finding"]["is_paid"] is True
     assert paid["finding"]["target"] == "api.acme.example"  # untouched field survives a partial update
 
     status, overview = call("get_overview")
     assert overview["counts"]["findings"] == 1
-    assert overview["earnings"] == [{"currency": "USD", "amount": 1500.0}]
+    assert overview["earnings"] == [
+        {"amount": 1500.0, "currency": "USD", "total": 1500.0, "paid": 1500.0, "unpaid": 0.0, "count": 1}
+    ]
     assert overview["median_days_to_triage"] == 2
 
     status, found = call("search", query="oauth", kind="knowledge")

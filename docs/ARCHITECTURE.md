@@ -8,7 +8,7 @@ VulnS is a single-user, server-rendered FastAPI application backed by SQLite.
 | --- | --- |
 | **KnowledgeEntry** | One vulnerability: title, bug type, default severity, summary, endpoint, technology, CWE, CVSS, Markdown report, remediation, references, research notes, tags, related entries and the *Use for AI* switch. |
 | **Tag** | A normalised label (`jwt`, `account-takeover`) shared by knowledge entries. Unused tags are removed. |
-| **Finding** | One knowledge entry submitted to one program: target, scope, lifecycle status, severity, report reference, dates, payout, bonus, currency and the program's own rating. |
+| **Finding** | One knowledge entry submitted to one program: target, scope, status (submitted / processing / done), outcome, severity, report reference, dates, payout, bonus, currency (VND / EUR / USD), paid flag and date, and the program's own rating. |
 | **Program** | A bounty program and its notes. Deleting it removes its findings but keeps all knowledge. |
 | **Evidence** | A file attached to a knowledge entry. |
 
@@ -19,10 +19,10 @@ A knowledge entry can be linked to many programs without being copied. Tags and 
 | Module | Responsibility |
 | --- | --- |
 | `main.py` | `create_app()`: configuration, database, middleware and routers |
-| `routes/` | One router per area: auth, dashboard, search, programs, knowledge, tags, AI export, findings, evidence |
+| `routes/` | One router per area: auth, dashboard, search, programs, knowledge, tags, AI export, findings, earnings, evidence |
 | `web.py` | Shared by the routers: page rendering, database session, sign-in check, record loaders |
 | `forms.py` | Parsing and validation of submitted form values |
-| `stats.py` | Dashboard figures, earnings per currency and response-time medians |
+| `stats.py` | Dashboard figures, the earnings report (paid / owed per currency and period) and response-time medians |
 | `agent.py` | Agent tool catalogue; `/api/agent/*` (WebMCP) and `/mcp` (JSON-RPC). Write tools call the form routes |
 | `search.py` | Query parsing and ranked search across all record kinds |
 | `database.py` | Engine setup, in-place migration, FTS5 indexes, related-entry signals |
@@ -35,7 +35,7 @@ A knowledge entry can be linked to many programs without being copied. Tags and 
 
 ## Storage
 
-- SQLite holds structured data. Columns added after the first release are created with `ALTER TABLE` at startup, and tags and related entries stored by older versions as JSON columns are moved into their join tables, so existing databases migrate in place.
+- SQLite holds structured data. Columns added after the first release are created with `ALTER TABLE` at startup, tags and related entries stored by older versions as JSON columns are moved into their join tables, and the earlier thirteen finding statuses are mapped onto status, outcome and the paid flag, so existing databases migrate in place. Currencies other than VND, EUR and USD stay on the rows that already use them.
 - Knowledge entries are indexed in an FTS5 table on write. Programs and findings share a second FTS5 table maintained by SQL triggers, so every write path keeps it current. Both are rebuilt at startup.
 - Each knowledge entry is mirrored to `data/markdown/<id>.md`. Evidence files use generated names under `data/evidence/`.
 - The AI export is built on request from the database and is never written to disk. It contains only entries with *Use for AI* on that are not drafts; research notes, programs, bounty data and evidence never enter it.
@@ -44,7 +44,7 @@ A knowledge entry can be linked to many programs without being copied. Tags and 
 
 - Username and password sign-in with constant-time comparison; signed, HTTP-only, SameSite session cookie.
 - CSRF token on every state-changing form and on browser agent calls.
-- Markdown is rendered with raw HTML disabled and sanitized with Bleach; search snippets are escaped before highlighting.
+- Markdown is rendered with raw HTML disabled and sanitized with Bleach; only renderer-generated classes (table alignment, attachment links) pass. Evidence is rendered by its stored type: inline images and videos, download links for everything else, and links instead of external images. Search snippets are escaped before highlighting.
 - Uploads are size-limited and stored under generated names; only raster images, audio and video are served inline.
 - The AI export replaces tokens, cookies, keys, emails, real hosts and program names before any text leaves the application.
 - Strict Content-Security-Policy, no third-party requests, no telemetry.

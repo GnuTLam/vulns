@@ -68,6 +68,7 @@ def sync_markdown(markdown_dir: Path, entry: KnowledgeEntry, session=None) -> Pa
                 "id": finding.program.id,
                 "name": finding.program.name,
                 "status": finding.status,
+                "outcome": finding.outcome,
                 "target": finding.target,
                 # Bounty facts are exported so the Markdown file is a complete record.
                 "currency": finding.currency,
@@ -77,6 +78,8 @@ def sync_markdown(markdown_dir: Path, entry: KnowledgeEntry, session=None) -> Pa
                 "submitted_at": finding.submitted_at,
                 "triaged_at": finding.triaged_at,
                 "rewarded_at": finding.rewarded_at,
+                "is_paid": finding.is_paid,
+                "paid_at": finding.paid_at,
                 "resolved_at": finding.resolved_at,
                 "program_severity": finding.program_severity,
                 "duplicate_of": finding.duplicate_of,

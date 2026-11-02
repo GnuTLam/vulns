@@ -7,7 +7,7 @@
     <div class="drawer-badges">
       <span class="severity {{ entry.default_severity }}">{{ humanize(entry.default_severity) }}</span>
       {% if entry.is_draft %}<span class="draft-badge">{{ tr.draft_badge }}</span>{% endif %}
-      {% if finding %}<span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span>{% endif %}
+      {% if finding %}<span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span>{% endif %}
       <small>
         {{- entry.bug_type }}
         {%- if entry.cwe %} · {{ entry.cwe }}{% endif %}

@@ -86,7 +86,7 @@
                   {% if item.snippet %}<p class="hit-snippet">{{ item.snippet }}</p>{% endif %}
                 </div>
                 <div class="hit-meta">
-                  <span class="status {{ item.status }}">{{ humanize(item.status) }}</span>
+                  <span class="status {{ item.status }}{{ ' outcome-' ~ item.outcome if item.outcome }}">{{ humanize(item.status) }}{% if item.outcome %} · {{ humanize(item.outcome) }}{% endif %}</span>
                   <span class="severity {{ item.severity }}">{{ humanize(item.severity) }}</span>
                   <small>{{ item.program }}</small>
                   <small>{{ item.report_id or item.target }}</small>

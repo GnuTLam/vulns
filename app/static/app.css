@@ -17,6 +17,9 @@
   --link: #145fc1;
   --danger: #c83f37;
   --danger-soft: #fff1f0;
+  --cur-vnd: #c8102e;
+  --cur-eur: #1f4fbf;
+  --cur-usd: #1e7d48;
   --warning: #9a610f;
   --info: #1769d2;
   --ok: #24834b;
@@ -58,6 +61,9 @@ html[data-theme="dark"] {
   --link: #76b3ff;
   --danger: #f08078;
   --danger-soft: #321d20;
+  --cur-vnd: #ff7a8a;
+  --cur-eur: #86a9ff;
+  --cur-usd: #6fd39b;
   --warning: #e2a64c;
   --info: #69aefc;
   --ok: #62c78b;
@@ -901,32 +907,14 @@ kbd {
 .bar-row.sev-informational .bar i {
   background: var(--sev-informational);
 }
-.bar-row.status-draft .bar i,
-.bar-row.status-not_submitted .bar i,
-.bar-row.status-archived .bar i {
-  background: var(--faint);
-}
-.bar-row.status-ready_to_submit .bar i {
-  background: var(--warning);
-}
 .bar-row.status-submitted .bar i {
   background: var(--info);
 }
-.bar-row.status-triaged .bar i {
+.bar-row.status-processing .bar i {
   background: #7c5ce0;
 }
-.bar-row.status-accepted .bar i,
-.bar-row.status-resolved .bar i,
-.bar-row.status-paid .bar i {
+.bar-row.status-done .bar i {
   background: var(--ok);
-}
-.bar-row.status-rejected .bar i,
-.bar-row.status-out_of_scope .bar i {
-  background: var(--danger);
-}
-.bar-row.status-duplicate .bar i,
-.bar-row.status-informative .bar i {
-  background: #7c5ce0;
 }
 .bar-row:hover {
   color: var(--text);
@@ -1422,29 +1410,22 @@ td > a:not(.strong-link):hover {
   border-radius: 50%;
   background: currentColor;
 }
-.status.submitted,
-.status.triaged {
+.status.submitted {
   color: var(--info);
 }
-.status.ready_to_submit {
-  color: var(--warning);
-}
-.status.accepted,
-.status.resolved,
-.status.paid {
-  color: var(--ok);
-}
-.status.rejected,
-.status.out_of_scope {
-  color: var(--danger);
-}
-.status.duplicate,
-.status.informative {
+.status.processing {
   color: #6f5aa8;
 }
-.status.not_submitted,
-.status.draft,
-.status.archived {
+.status.done {
+  color: var(--ok);
+}
+/* A closed report takes the colour of what the program decided. */
+.status.done.outcome-rejected,
+.status.done.outcome-out_of_scope {
+  color: var(--danger);
+}
+.status.done.outcome-duplicate,
+.status.done.outcome-informative {
   color: var(--faint);
 }
 /* Filters */
@@ -1745,12 +1726,70 @@ html[data-theme="dark"] .markdown-body code {
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
-.markdown-body table {
-  font-size: 12.5px;
+.markdown-body video {
+  display: block;
+  max-width: 100%;
   margin: 0.8em 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #000;
+}
+.markdown-body .attachment-link::before {
+  content: "\1F4CE\00a0";
+}
+.markdown-body .external-image::before {
+  content: "\1F5BC\00a0";
+}
+/* Wide tables scroll inside the report instead of widening the page. */
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.8em 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.markdown-body th,
+.markdown-body td {
+  position: static;
+  height: auto;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: normal;
+}
+.markdown-body th + th,
+.markdown-body td + td {
+  border-left: 1px solid var(--line);
 }
 .markdown-body th {
-  position: static;
+  color: var(--text);
+  font-size: 12.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.markdown-body td {
+  color: var(--text);
+  font-size: inherit;
+}
+.markdown-body tbody tr:nth-child(even) td {
+  background: var(--surface-alt);
+}
+.markdown-body tbody tr:last-child td {
+  border-bottom: 0;
+}
+.markdown-body .align-left {
+  text-align: left;
+}
+.markdown-body .align-center {
+  text-align: center;
+}
+.markdown-body .align-right {
+  text-align: right;
 }
 .markdown-body hr {
   height: 1px;
@@ -4107,4 +4146,245 @@ body.drawer-open {
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 0.12s;
+}
+
+/* Money: currency icon, paid state */
+.money {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.money small {
+  color: var(--faint);
+  font-size: 0.78em;
+  font-weight: 500;
+}
+.cur-icon {
+  --cur: var(--faint);
+  display: inline-grid;
+  place-items: center;
+  width: 1.45em;
+  height: 1.45em;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cur) 14%, transparent);
+  color: var(--cur);
+  font-size: 0.82em;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+.cur-vnd .cur-icon,
+.cur-icon.cur-vnd {
+  --cur: var(--cur-vnd);
+}
+.cur-eur .cur-icon,
+.cur-icon.cur-eur {
+  --cur: var(--cur-eur);
+}
+.cur-usd .cur-icon,
+.cur-icon.cur-usd {
+  --cur: var(--cur-usd);
+}
+.paid-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+.paid-badge.is-paid {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+.paid-badge.is-unpaid {
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
+}
+.money-input {
+  position: relative;
+  display: block;
+}
+.money-input .cur-icon {
+  position: absolute;
+  top: 50%;
+  left: 9px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.money-input input {
+  padding-left: 36px;
+}
+.compact-button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* Earnings */
+.period-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.period-tab {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.period-tab:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+.period-tab.active {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.earnings-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.earnings-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+.earnings-card:hover {
+  border-color: var(--line-strong);
+}
+.earnings-card.active {
+  border-color: var(--accent-line);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.earnings-card-head {
+  font-size: 22px;
+  font-weight: 600;
+}
+.earnings-split {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.earnings-split b {
+  text-align: right;
+  font-weight: 600;
+}
+.earnings-meter {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 35%, var(--surface-3));
+  overflow: hidden;
+}
+.earnings-meter i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+}
+.earnings-card small {
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.earnings-chart {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  height: 180px;
+  padding-top: 8px;
+}
+.earnings-column {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+.earnings-stack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 36px;
+  min-height: 0;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+}
+.earnings-stack i {
+  display: block;
+  flex-basis: 0;
+  min-height: 2px;
+}
+.earnings-stack .is-paid,
+.earnings-legend .is-paid {
+  background: var(--ok);
+}
+.earnings-stack .is-unpaid,
+.earnings-legend .is-unpaid {
+  background: var(--warning);
+}
+.earnings-column small {
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.earnings-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.earnings-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.earnings-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.earnings-workspace .bar-row {
+  grid-template-columns: minmax(96px, 130px) minmax(0, 1fr) auto;
+}
+.earnings-table td {
+  white-space: normal;
+}
+.earnings-table .amount-head,
+.earnings-table .amount-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.earnings-table .amount-cell {
+  color: var(--text);
+}
+@media (max-width: 640px) {
+  .earnings-chart {
+    gap: 3px;
+    height: 140px;
+  }
+  .earnings-column small {
+    font-size: 9.5px;
+  }
 }

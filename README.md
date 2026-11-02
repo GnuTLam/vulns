@@ -4,12 +4,13 @@ A self-hosted workspace for bug bounty hunters. VulnS keeps reusable vulnerabili
 
 ## Features
 
-- **Vulnerability database.** Each vulnerability is written once as Markdown with taxonomy (bug type, severity, CWE, CVSS, endpoint, technology) and free tags, then linked to any number of programs.
+- **Vulnerability database.** Each vulnerability is written once as Markdown (GitHub-style tables, task lists, strikethrough) with taxonomy (bug type, severity, CWE, CVSS, endpoint, technology) and free tags, then linked to any number of programs.
 - **Tags.** Normalised labels such as `jwt` or `account-takeover`, with suggestions while typing and a page to rename, merge or delete them.
-- **Submission tracking.** Per-program status, report IDs, discovery, triage and reward dates, payouts and bonuses per currency, and program re-ratings.
+- **Submission tracking.** Per-program status (*Submitted*, *Processing*, *Done*) and outcome (accepted, duplicate, informative, rejected, out of scope), report IDs, discovery, triage and reward dates, payouts and bonuses in VND, EUR or USD, whether the money has been received, and program re-ratings.
 - **Dashboard.** What is waiting on a program, accepted reports still unpaid, drafts to finish, earnings and response-time medians.
+- **Earnings.** Paid and still-owed bounties per currency, by month or year, program and severity, with a one-click *Mark paid*. Currencies are never added together.
 - **Search.** One ranked, diacritic-insensitive query language across research, findings and programs, with a `Ctrl K` palette.
-- **Evidence.** Screenshots, videos, HTTP traces and other files attached to research.
+- **Evidence.** Screenshots, videos, HTTP traces and other files attached to research. Inserted into a report, images and videos play inline and other files become download links.
 - **Portable data.** Every entry is also written as UTF-8 Markdown with YAML frontmatter; `.md` files can be imported back.
 - **Export for AI.** Every vulnerability marked *Use for AI* as one JSON file or a ZIP of Markdown files, with tokens, cookies, emails, real hosts and program names replaced.
 - **Agent API.** Seven tools exposed over WebMCP in the browser and over MCP for external clients.
@@ -62,13 +63,15 @@ Run the tests with `pytest` and the linter with `ruff check .`.
 | `oauth redirect` | every word must match; prefix and diacritic-insensitive |
 | `"open redirect"` | exact phrase |
 | `-csrf` | exclude a word |
-| `sev:critical` `status:accepted` `type:xss` | severity, lifecycle status, bug type |
+| `sev:critical` `status:processing` `type:xss` | severity, status (`submitted`, `processing`, `done`), bug type |
+| `outcome:duplicate` | the program's decision: `accepted`, `duplicate`, `informative`, `rejected`, `out_of_scope` |
 | `tag:jwt` `cwe:352` `tech:graphql` | tag and taxonomy |
 | `endpoint:/oauth` `target:api` | location |
-| `program:acme` `currency:USD` | program name, payout currency |
+| `program:acme` `currency:VND` | program name, payout currency |
 | `cvss:>=8` `payout:>500` | numeric comparisons (`>`, `>=`, `<`, `<=`, `=`) |
 | `after:2026-01-01` `before:2026-07-01` | last-updated bounds |
-| `is:open` `is:draft` `is:ai` `is:rewarded` `is:downgraded` | lifecycle and AI-export predicates |
+| `is:open` `is:processing` `is:done` `is:accepted` `is:draft` `is:ai` | lifecycle and AI-export predicates |
+| `is:rewarded` `is:paid` `is:unpaid` `is:downgraded` | bounty predicates; `is:unpaid` is a recorded bounty not yet received |
 | `has:tags` `has:poc` `has:evidence` `has:reward` | presence checks |
 | `kind:program` | restrict to one record kind |
 

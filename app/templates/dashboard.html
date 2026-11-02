@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
 {% block title %}{{ tr.dashboard }}{% endblock %}
 {% block content %}
   <div class="toolbar">
@@ -19,7 +20,7 @@
       <section class="dashboard-metrics" aria-label="{{ tr.registry_summary }}">
         {% for metric, href, label, value in [
           ("open", "/findings?q=is%3Aopen", tr.open_vulnerabilities, open_count),
-          ("accepted", "/findings?status=accepted", tr.accepted_or_later, accepted_count),
+          ("accepted", "/findings?q=outcome%3Aaccepted", tr.accepted_or_later, accepted_count),
           ("vulnerabilities", "/findings", tr.total_vulnerabilities, finding_total),
           ("rewarded", "/findings?q=has%3Areward", tr.rewarded, metrics.rewarded_count),
           ("knowledge", "/knowledge", tr.total_knowledge, knowledge_count),
@@ -64,7 +65,7 @@
                     <small>
                       {{- finding.program.name }}
                       {%- if finding.report_id %} · {{ finding.report_id }}{% endif %}
-                      {%- if finding.status == "triaged" %} · {{ humanize(finding.status) }}{% endif -%}
+                      {%- if finding.status == "processing" %} · {{ humanize(finding.status) }}{% endif -%}
                     </small>
                   </span>
                   <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
@@ -131,7 +132,7 @@
                     </small>
                   </div>
                   <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
-                  <span class="status {{ finding.status }}">{{ humanize(finding.status) }}</span>
+                  <span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span>
                 </article>
               {% endfor %}
             </div>
@@ -153,12 +154,16 @@
           <section class="panel">
             <div class="panel-head">
               <h2 class="section-label">{{ tr.earnings }}</h2>
+              <a class="meta" href="/earnings">{{ tr.view_all }}</a>
             </div>
             <dl class="ledger">
-              {% for code, amount in earnings %}
+              {% for row in earnings_split %}
                 <div>
-                  <dt>{{ code }}</dt>
-                  <dd>{{ '{:,.0f}'.format(amount) }}</dd>
+                  <dt>{{ ui.money(row.total, row.currency) }}</dt>
+                  <dd>
+                    {%- if row.unpaid %}<a class="paid-badge is-unpaid" href="/earnings#unpaid">{{ tr.unpaid }} {{ row.unpaid|money(row.currency) }}</a>
+                    {%- else %}<span class="paid-badge is-paid">{{ tr.paid }}</span>{% endif -%}
+                  </dd>
                 </div>
               {% else %}
                 <div>

@@ -1,24 +1,50 @@
 """Helpers shared by the routers: page rendering, the database session, sign-in and record loading."""
 
 import hashlib
+import re
 from pathlib import Path
 
 import bleach
 from fastapi import HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from markdown_it import MarkdownIt
+from markdown_it.common.utils import escapeHtml
 from mdit_py_plugins.tasklists import tasklists_plugin
 from sqlalchemy.orm import Session, selectinload
 
 from .i18n import TRANSLATIONS, term
 from .markdown_store import sync_markdown
-from .models import Finding, KnowledgeEntry, Program
+from .models import Evidence, Finding, KnowledgeEntry, Program
 from .security import authenticated, csrf_token
-from .taxonomy import BUG_TYPES, CURRENCIES, DEFAULT_CURRENCY, SEVERITIES, STATUSES
+from .taxonomy import BUG_TYPES, CURRENCIES, CURRENCY_SYMBOLS, DEFAULT_CURRENCY, OUTCOMES, SEVERITIES, STATUSES
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
 templates = Jinja2Templates(directory=APP_DIR / "templates")
+
+# Currencies without minor units in everyday use.
+WHOLE_CURRENCIES = {"VND", "JPY"}
+
+
+def format_money(amount: float | None, currency: str = "") -> str:
+    """An amount with thousands separators: ``15,000,000`` VND, ``1,250.50`` or ``300`` USD."""
+    if amount is None:
+        return ""
+    if currency in WHOLE_CURRENCIES:
+        return f"{amount:,.0f}"
+    text = f"{amount:,.2f}"
+    return text[:-3] if text.endswith(".00") else text
+
+
+def format_money_input(amount: float | None) -> str:
+    """An amount as a number input expects it: no exponent, no needless ``.0``."""
+    if amount is None:
+        return ""
+    return f"{amount:.0f}" if float(amount).is_integer() else f"{amount:.2f}".rstrip("0")
+
+
+templates.env.filters["money"] = format_money
+templates.env.filters["money_input"] = format_money_input
 
 
 def _asset_hash() -> str:
@@ -31,7 +57,67 @@ def _asset_hash() -> str:
 
 ASSET_HASH = _asset_hash()
 
-MARKDOWN = MarkdownIt("commonmark", {"html": False, "linkify": True, "typographer": True}).use(tasklists_plugin)
+# Evidence types the browser may display; everything else is downloaded. SVG can carry script.
+SAFE_INLINE_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/avif",
+    "image/bmp",
+    "video/mp4",
+    "video/webm",
+    "audio/mpeg",
+    "audio/ogg",
+}
+EVIDENCE_SRC = re.compile(r"^/evidence/([0-9a-f-]{36})(?:\?.*)?$")
+EVIDENCE_REFERENCE = re.compile(r"/evidence/([0-9a-f-]{36})")
+TABLE_ALIGNMENT = re.compile(r"^text-align:(left|center|right)$")
+
+
+def _table_alignment(state) -> None:
+    """Turn the inline ``text-align`` style of table cells into a class, since the sanitizer drops styles."""
+    for token in state.tokens:
+        if token.type in ("th_open", "td_open") and (match := TABLE_ALIGNMENT.match(token.attrGet("style") or "")):
+            del token.attrs["style"]
+            token.attrSet("class", f"align-{match.group(1)}")
+
+
+def _render_image(renderer, tokens, idx, options, env) -> str:
+    """Images that can be shown inline; attachments and external images otherwise become links.
+
+    ``env["evidence"]`` maps evidence ids to MIME types. External images are linked rather than
+    loaded because the Content-Security-Policy blocks third-party requests.
+    """
+    token = tokens[idx]
+    src = token.attrGet("src") or ""
+    alt = renderer.renderInlineAsText(token.children or [], options, env)
+    title = token.attrGet("title")
+    title_attr = f' title="{escapeHtml(title)}"' if title else ""
+    match = EVIDENCE_SRC.match(src)
+    evidence = env.get("evidence")
+    if match and evidence is not None:
+        evidence_id = match.group(1)
+        mime_type = evidence.get(evidence_id, "")
+        url = f"/evidence/{evidence_id}"
+        if mime_type in SAFE_INLINE_TYPES and mime_type.startswith("video/"):
+            return f'<video controls preload="metadata" src="{url}"{title_attr}></video>'
+        if mime_type not in SAFE_INLINE_TYPES or not mime_type.startswith("image/"):
+            label = escapeHtml(alt or "attachment")
+            return f'<a class="attachment-link" href="{url}?download=true"{title_attr}>{label}</a>'
+    elif src.startswith(("http://", "https://")):
+        label = escapeHtml(alt or src)
+        return f'<a class="external-image" href="{escapeHtml(src)}"{title_attr}>{label}</a>'
+    return f'<img src="{escapeHtml(src)}" alt="{escapeHtml(alt)}"{title_attr} loading="lazy">'
+
+
+MARKDOWN = (
+    MarkdownIt("commonmark", {"html": False, "typographer": True})
+    .enable(["table", "strikethrough"])
+    .use(tasklists_plugin)
+)
+MARKDOWN.core.ruler.push("table_alignment", _table_alignment)
+MARKDOWN.add_render_rule("image", _render_image)
 ALLOWED_MARKDOWN_TAGS = set(bleach.sanitizer.ALLOWED_TAGS) | {
     "p",
     "pre",
@@ -55,17 +141,45 @@ ALLOWED_MARKDOWN_TAGS = set(bleach.sanitizer.ALLOWED_TAGS) | {
     "th",
     "td",
     "del",
+    "s",
     "input",
     "img",
+    "video",
+}
+ALLOWED_MARKDOWN_ATTRIBUTES = {
+    "a": {"href", "title"},
+    "img": {"src", "alt", "title", "loading"},
+    "video": {"src", "title", "controls", "preload"},
+    "input": {"type", "checked", "disabled"},
+}
+ALLOWED_MARKDOWN_CLASSES = {
+    "a": {"attachment-link", "external-image"},
+    "th": {"align-left", "align-center", "align-right"},
+    "td": {"align-left", "align-center", "align-right"},
 }
 
 
-def render_markdown(value: str) -> str:
-    rendered = MARKDOWN.render(value or "")
+def _allowed_attribute(tag: str, name: str, value: str) -> bool:
+    if name == "class":
+        return value in ALLOWED_MARKDOWN_CLASSES.get(tag, ())
+    return name in ALLOWED_MARKDOWN_ATTRIBUTES.get(tag, ())
+
+
+def evidence_types(db: Session, *texts: str) -> dict[str, str]:
+    """MIME type of every evidence file referenced as ``/evidence/<id>`` in the given Markdown."""
+    ids = {match for text in texts for match in EVIDENCE_REFERENCE.findall(text or "")}
+    if not ids:
+        return {}
+    return dict(db.query(Evidence.id, Evidence.mime_type).filter(Evidence.id.in_(ids)).all())
+
+
+def render_markdown(value: str, evidence: dict[str, str] | None = None) -> str:
+    """Sanitized HTML for a report; pass ``evidence`` (id -> MIME type) to render attachments by type."""
+    rendered = MARKDOWN.render(value or "", {"evidence": evidence})
     return bleach.clean(
         rendered,
         tags=ALLOWED_MARKDOWN_TAGS,
-        attributes={"a": ["href", "title"], "img": ["src", "alt", "title"], "input": ["type", "checked", "disabled"]},
+        attributes=_allowed_attribute,
         protocols={"http", "https", "mailto"},
         strip=True,
     )
@@ -82,6 +196,8 @@ def render(request: Request, template: str, active: str = "", *, status_code: in
         "asset_hash": ASSET_HASH,
         "severities": SEVERITIES,
         "statuses": STATUSES,
+        "outcomes": OUTCOMES,
+        "currency_symbols": CURRENCY_SYMBOLS,
         "bug_types": BUG_TYPES,
         "currencies": CURRENCIES,
         "default_currency": DEFAULT_CURRENCY,

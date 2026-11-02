@@ -8,23 +8,31 @@ MAX_TAGS = 12
 TAG_MAX_LENGTH = 40
 
 # Payout currencies. Rewards are totalled per currency, never across currencies.
-CURRENCIES = ("USD", "EUR", "GBP", "VND", "SGD", "JPY", "INR", "AUD", "CAD", "CHF", "BTC")
+CURRENCIES = ("VND", "EUR", "USD")
+CURRENCY_SYMBOLS = {"VND": "₫", "EUR": "€", "USD": "$"}
+# Offered by earlier versions. Rows that already use one keep it, but it cannot be chosen anew.
+LEGACY_CURRENCIES = ("GBP", "SGD", "JPY", "INR", "AUD", "CAD", "CHF", "BTC")
 DEFAULT_CURRENCY = "USD"
-STATUSES = (
-    "draft",
-    "not_submitted",
-    "ready_to_submit",
-    "submitted",
-    "triaged",
-    "accepted",
-    "rejected",
-    "duplicate",
-    "informative",
-    "out_of_scope",
-    "resolved",
-    "paid",
-    "archived",
-)
+# Where a submission stands; what the program decided is kept separately as its outcome.
+STATUSES = ("submitted", "processing", "done")
+OUTCOMES = ("", "accepted", "duplicate", "informative", "rejected", "out_of_scope")
+# Statuses that no longer need attention; `is:open` is the complement.
+CLOSED_STATUSES = ("done",)
+# Earlier lifecycle values -> (status, outcome, paid), applied once at startup.
+LEGACY_STATUSES = {
+    "draft": ("submitted", "", False),
+    "not_submitted": ("submitted", "", False),
+    "ready_to_submit": ("submitted", "", False),
+    "triaged": ("processing", "", False),
+    "accepted": ("processing", "accepted", False),
+    "resolved": ("done", "accepted", False),
+    "paid": ("done", "accepted", True),
+    "rejected": ("done", "rejected", False),
+    "duplicate": ("done", "duplicate", False),
+    "informative": ("done", "informative", False),
+    "out_of_scope": ("done", "out_of_scope", False),
+    "archived": ("done", "", False),
+}
 BUG_TYPES = (
     "Access Control",
     "Authentication",

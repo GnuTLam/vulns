@@ -3,7 +3,8 @@
 ## Done
 
 - Programs, reusable knowledge, findings and evidence with full CRUD
-- Bounty tracking: lifecycle dates, payouts per currency, program re-ratings
+- Bounty tracking: lifecycle dates, payouts per currency, paid / unpaid, program re-ratings
+- Earnings statistics per currency
 - Ranked search with a query language and command palette
 - Markdown files and import
 - Tags and an AI export as JSON or Markdown, with redaction
