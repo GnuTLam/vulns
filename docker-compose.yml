@@ -3,6 +3,7 @@ name: vulns
 services:
   vulns:
     build: .
+    image: ghcr.io/gnutlam/vulns:${VULNS_VERSION:-latest}
     container_name: vulns
     restart: unless-stopped
     ports:
@@ -16,8 +17,30 @@ services:
       VULNS_MAX_UPLOAD_MB: ${VULNS_MAX_UPLOAD_MB:-50}
       VULNS_AGENT_TOKEN: ${VULNS_AGENT_TOKEN:-}
       VULNS_DATA_DIR: /data
+      VULNS_UPDATE_CHECK: ${VULNS_UPDATE_CHECK:-true}
+      VULNS_UPDATER_URL: http://vulns-updater:8070
+      VULNS_UPDATER_TOKEN: ${VULNS_UPDATER_TOKEN:-}
+      VULNS_RELEASE_MANIFEST_URL: ${VULNS_RELEASE_MANIFEST_URL:-}
     volumes:
       - vulns_data:/data
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - vulns-updater
+
+  # Applies one-click updates on behalf of the app. It holds the Docker socket, so it is
+  # the only service that may touch Docker; it answers on the compose network only and
+  # requires the shared VULNS_UPDATER_TOKEN on every call.
+  vulns-updater:
+    build: ./updater
+    image: ghcr.io/gnutlam/vulns-updater:${VULNS_VERSION:-latest}
+    container_name: vulns-updater
+    restart: unless-stopped
+    environment:
+      VULNS_UPDATER_TOKEN: ${VULNS_UPDATER_TOKEN:-}
+    volumes:
+      - vulns_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
     security_opt:
       - no-new-privileges:true
 

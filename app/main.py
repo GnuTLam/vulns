@@ -7,7 +7,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import agent
 from .config import Settings
 from .database import create_database, init_database
-from .routes import ai_export, auth, dashboard, earnings, evidence, findings, knowledge, programs, search, tags
+from .routes import ai_export, auth, dashboard, earnings, evidence, findings, knowledge, programs, search, system, tags
+from .update_check import RELEASE_MANIFEST_URL, UpdateChecker
 from .web import STATIC_DIR, render
 
 CONTENT_SECURITY_POLICY = (
@@ -30,6 +31,7 @@ ROUTERS = (
     findings.router,
     earnings.router,
     agent.router,
+    system.router,
 )
 
 
@@ -62,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="VulnS", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings
     app.state.session_factory = session_factory
+    app.state.update_checker = UpdateChecker(url=settings.release_manifest_url or RELEASE_MANIFEST_URL)
     app.middleware("http")(security_headers)
     app.add_middleware(
         SessionMiddleware,

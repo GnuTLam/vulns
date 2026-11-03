@@ -2,6 +2,32 @@
 {% import "_macros.html" as ui with context %}
 {% block title %}{{ tr.dashboard }}{% endblock %}
 {% block content %}
+  {% if update_info %}
+    <section class="panel update-banner" data-update-banner
+             data-phase-backup="{{ tr.update_phase_backup }}"
+             data-phase-pull="{{ tr.update_phase_pull }}"
+             data-phase-swap="{{ tr.update_phase_swap }}"
+             data-phase-verify="{{ tr.update_phase_verify }}"
+             data-phase-done="{{ tr.update_phase_done }}"
+             data-phase-rolled_back="{{ tr.update_phase_rolled_back }}"
+             data-phase-failed="{{ tr.update_phase_failed }}"
+             data-phase-rollback_failed="{{ tr.update_phase_rollback_failed }}"
+             data-phase-unknown="{{ tr.update_phase_unknown }}"
+             data-retry-hint="{{ tr.update_retry_hint }}"
+             data-error-not_configured="{{ tr.update_error_not_configured }}"
+             data-error-updater_unreachable="{{ tr.update_error_unreachable }}"
+             data-error-no_update_available="{{ tr.update_error_no_update }}"
+             data-confirm-update="{{ tr.update_confirm }}">
+      <div class="update-banner-info">
+        <strong>{{ tr.update_available }}</strong>
+        <span>{{ tr.update_version_prefix }} {{ update_info.latest }}</span>
+        {% if update_info.notes_url %}<a href="{{ update_info.notes_url }}" target="_blank" rel="noopener">{{ tr.update_notes }}</a>{% endif %}
+      </div>
+      <div class="update-banner-actions">
+        <button type="button" class="button primary" data-update-start>{{ tr.update_now }}</button>
+      </div>
+    </section>
+  {% endif %}
   <div class="toolbar">
     <div class="crumbs"><strong>{{ tr.dashboard }}</strong></div>
   </div>

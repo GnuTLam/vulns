@@ -9,6 +9,12 @@ WORKDIR /app
 RUN groupadd --system vulns && useradd --system --gid vulns --home /app vulns
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --requirement requirements.txt
+
+# The release tag, reported by /api/version and stamped on every update log entry.
+# Declared after the dependency layer so a version-only rebuild reuses it.
+ARG APP_VERSION=dev
+ENV VULNS_APP_VERSION=${APP_VERSION}
+
 COPY app ./app
 RUN mkdir -p /data && chown -R vulns:vulns /app /data
 

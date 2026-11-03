@@ -1,0 +1,76 @@
+name: Release
+
+# A tag v<X.Y.Z> runs the suite, builds both images for amd64 and arm64, pushes them to
+# ghcr.io and publishes a GitHub Release with the release.json manifest the in-app
+# updater checks (releases/latest/download/release.json).
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test
+        run: |
+          pip install --requirement requirements-dev.txt
+          ruff check .
+          pytest
+      - name: Lowercase image name
+        run: echo "IMAGE=${IMAGE,,}" >> "$GITHUB_ENV"
+      - name: Version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push the app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: APP_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.IMAGE }}:latest
+          push: true
+      - name: Build and push the updater image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./updater
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ env.IMAGE }}-updater:${{ steps.version.outputs.version }}
+            ${{ env.IMAGE }}-updater:latest
+          push: true
+      - name: Write the release manifest
+        run: |
+          cat > release.json << EOF
+          {
+            "version": "${{ steps.version.outputs.version }}",
+            "image": "${{ env.IMAGE }}:${{ steps.version.outputs.version }}",
+            "min_updatable_from": "0.2.0",
+            "min_schema": 1,
+            "notes_url": "https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}"
+          }
+          EOF
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release.json
+          generate_release_notes: true

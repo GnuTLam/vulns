@@ -1,13 +1,15 @@
 import json
 import re
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from datetime import UTC, datetime
 
 from sqlalchemy import Engine, bindparam, create_engine, event, func, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Base, KnowledgeEntry, Tag, knowledge_relations, knowledge_tags
 from .taxonomy import LEGACY_STATUSES, STATUSES, parse_tags
+from .version import SCHEMA_VERSION
 
 KNOWLEDGE_COLUMNS = {
     "endpoint": "VARCHAR(500) NOT NULL DEFAULT ''",
@@ -57,15 +59,64 @@ def _ensure_columns(connection, table: str, columns: dict[str, str]) -> None:
             connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
 
 
+def _baseline_columns_and_legacy_lists(connection) -> None:
+    """Migration 1: additive columns for every post-first-release field, then the legacy
+    JSON list columns move into their join tables. Idempotent, so a database from before
+    the migration registry and a fresh one both end at the same state."""
+    _ensure_columns(connection, "knowledge_entries", KNOWLEDGE_COLUMNS)
+    _ensure_columns(connection, "findings", FINDING_COLUMNS)
+    _migrate_json_lists(connection)
+
+
+# Ordered, run-once schema migrations. Append a new entry and bump SCHEMA_VERSION for a
+# future change; never renumber or edit an applied migration.
+MIGRATIONS: list[tuple[int, str, Callable]] = [
+    (1, "baseline columns and legacy JSON lists", _baseline_columns_and_legacy_lists),
+]
+
+
+def _migrate_schema(connection) -> None:
+    """Apply every migration not yet recorded in ``schema_migrations``.
+
+    Applied versions are stamped, so each step runs exactly once per database. A database
+    from before this table existed starts empty and the idempotent baseline brings it in.
+    """
+    if MIGRATIONS[-1][0] != SCHEMA_VERSION:
+        raise RuntimeError(
+            f"SCHEMA_VERSION is {SCHEMA_VERSION} but the last migration is {MIGRATIONS[-1][0]}; "
+            "they must move together"
+        )
+    connection.execute(
+        text("""
+        CREATE TABLE IF NOT EXISTS schema_migrations(
+            version INTEGER PRIMARY KEY,
+            description VARCHAR(200) NOT NULL,
+            applied_at VARCHAR(40) NOT NULL
+        )
+    """)
+    )
+    applied = {row[0] for row in connection.execute(text("SELECT version FROM schema_migrations"))}
+    for version, description, apply_migration in MIGRATIONS:
+        if version in applied:
+            continue
+        apply_migration(connection)
+        connection.execute(
+            text("INSERT INTO schema_migrations(version, description, applied_at) VALUES (:v, :d, :a)"),
+            {
+                "v": version,
+                "d": description,
+                "a": datetime.now(UTC).isoformat(timespec="seconds"),
+            },
+        )
+
+
 def init_database(engine: Engine) -> None:
     Base.metadata.create_all(engine)
     if not engine.url.drivername.startswith("sqlite"):
         return
     with engine.begin() as connection:
-        _ensure_columns(connection, "knowledge_entries", KNOWLEDGE_COLUMNS)
-        _ensure_columns(connection, "findings", FINDING_COLUMNS)
+        _migrate_schema(connection)
         _migrate_statuses(connection)
-        _migrate_json_lists(connection)
         connection.execute(text("DROP TABLE IF EXISTS knowledge_fts"))
         connection.execute(
             text("""

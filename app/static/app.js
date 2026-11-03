@@ -543,6 +543,114 @@
     });
   });
 
+  // In-app update: one button, then a phase display driven by the updater's status.
+  // During the container swap the app answers nothing for a few seconds; polling simply
+  // continues until it is back and reports a final phase.
+  const updateBanner = document.querySelector('[data-update-banner]');
+  if (updateBanner) {
+    const labels = {
+      backup: updateBanner.dataset.phaseBackup,
+      pull: updateBanner.dataset.phasePull,
+      swap: updateBanner.dataset.phaseSwap,
+      verify: updateBanner.dataset.phaseVerify,
+      done: updateBanner.dataset.phaseDone,
+      rolled_back: updateBanner.dataset.phaseRolledBack,
+      failed: updateBanner.dataset.phaseFailed,
+      rollback_failed: updateBanner.dataset.phaseRollbackFailed,
+    };
+    const errorLabels = {
+      not_configured: updateBanner.dataset.errorNotConfigured,
+      updater_unreachable: updateBanner.dataset.errorUpdaterUnreachable,
+      no_update_available: updateBanner.dataset.errorNoUpdate,
+    };
+    const retryHint = updateBanner.dataset.retryHint;
+    const info = updateBanner.querySelector('.update-banner-info');
+    const actions = updateBanner.querySelector('.update-banner-actions');
+    const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+    const showPhase = (phase, extra) => {
+      const strong = document.createElement('strong');
+      strong.textContent = labels[phase] || labels.unknown || updateBanner.dataset.phaseUnknown;
+      info.replaceChildren(strong);
+      if (extra) {
+        const detail = document.createElement('small');
+        detail.className = 'update-detail';
+        detail.textContent = extra;
+        info.append(detail);
+      }
+      actions.replaceChildren();
+    };
+
+    // The banner's session may predate the restart; wait for the new version, then reload.
+    const reloadOnVersion = async (target) => {
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        try {
+          const response = await fetch('/api/version', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+          if (response.ok) {
+            const current = await response.json();
+            if (!target || current.version === target) {
+              window.location.reload();
+              return;
+            }
+          }
+        } catch (_error) {
+          /* still restarting */
+        }
+        await sleep(2000);
+      }
+      window.location.reload();
+    };
+
+    const pollStatus = async () => {
+      const deadline = Date.now() + 5 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await sleep(2000);
+        let updater = null;
+        try {
+          const response = await fetch('/api/update/status', { headers: { Accept: 'application/json' } });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.reachable) updater = data.updater;
+          }
+        } catch (_error) {
+          /* the app container is being swapped; keep polling */
+        }
+        if (!updater) continue;
+        const phase = updater.phase;
+        if (phase === 'done') {
+          showPhase('done', updater.to || '');
+          await reloadOnVersion(updater.to || '');
+          return;
+        }
+        if (phase === 'rolled_back' || phase === 'failed' || phase === 'rollback_failed') {
+          showPhase(phase, updater.error || '');
+          return;
+        }
+        showPhase(phase || 'unknown');
+      }
+      showPhase('unknown', retryHint);
+    };
+
+    const runUpdate = async () => {
+      showPhase('backup');
+      try {
+        const response = await postForm('/api/update/run', {});
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          showPhase('failed', errorLabels[data.error] || data.error || '');
+          return;
+        }
+        await pollStatus();
+      } catch (_error) {
+        showPhase('failed', retryHint);
+      }
+    };
+
+    updateBanner.querySelector('[data-update-start]')?.addEventListener('click', () => {
+      confirmAction(updateBanner.dataset.confirmUpdate, runUpdate);
+    });
+  }
+
   const recordTabs = [...document.querySelectorAll('[data-record-tab]')];
   if (recordTabs.length) {
     const panes = [...document.querySelectorAll('[data-record-pane]')];

@@ -19,13 +19,16 @@ A knowledge entry can be linked to many programs without being copied. Tags and 
 | Module | Responsibility |
 | --- | --- |
 | `main.py` | `create_app()`: configuration, database, middleware and routers |
-| `routes/` | One router per area: auth, dashboard, search, programs, knowledge, tags, AI export, findings, earnings, evidence |
+| `routes/` | One router per area: auth, dashboard, search, programs, knowledge, tags, AI export, findings, earnings, evidence, system (version, update proxy) |
 | `web.py` | Shared by the routers: page rendering, database session, sign-in check, record loaders |
 | `forms.py` | Parsing and validation of submitted form values |
 | `stats.py` | Dashboard figures, the earnings report (paid / owed per currency and period) and response-time medians |
 | `agent.py` | Agent tool catalogue; `/api/agent/*` (WebMCP) and `/mcp` (JSON-RPC). Write tools call the form routes |
 | `search.py` | Query parsing and ranked search across all record kinds |
 | `database.py` | Engine setup, in-place migration, FTS5 indexes, related-entry signals |
+| `update_check.py` | Release-manifest check: is a newer compatible version published? |
+| `version.py` | `APP_VERSION` (build-time release tag) and `SCHEMA_VERSION` |
+| `updater/` | The sidecar applying one-click updates; it alone holds the Docker socket |
 | `taxonomy.py` | Severities, statuses, bug types, currencies and tag normalisation |
 | `export.py` | AI export as one JSON document or a ZIP of Markdown files |
 | `redaction.py` | Replaces secrets, emails, real hosts, public IPs and program names in exported text |
@@ -35,7 +38,8 @@ A knowledge entry can be linked to many programs without being copied. Tags and 
 
 ## Storage
 
-- SQLite holds structured data. Columns added after the first release are created with `ALTER TABLE` at startup, tags and related entries stored by older versions as JSON columns are moved into their join tables, and the earlier thirteen finding statuses are mapped onto status, outcome and the paid flag, so existing databases migrate in place. Currencies other than VND, EUR and USD stay on the rows that already use them.
+- SQLite holds structured data. Schema changes are ordered, run-once migrations recorded in a `schema_migrations` table; the baseline (additive columns, the legacy JSON list columns moved into their join tables, the earlier thirteen finding statuses mapped onto status, outcome and the paid flag) brings any existing database up to date in place. Currencies other than VND, EUR and USD stay on the rows that already use them.
+- One-click updates ([docs/UPDATES.md](UPDATES.md)): a GitHub release manifest gates an *Update now* button on the dashboard; a sidecar with the Docker socket backs the database up (`VACUUM INTO`, verified), pulls the release image and swaps the container, gated by a deep health check with automatic rollback. The app container itself gains no privileges.
 - Knowledge entries are indexed in an FTS5 table on write. Programs and findings share a second FTS5 table maintained by SQL triggers, so every write path keeps it current. Both are rebuilt at startup.
 - Each knowledge entry is mirrored to `data/markdown/<id>.md`. Evidence files use generated names under `data/evidence/`.
 - The AI export is built on request from the database and is never written to disk. It contains only entries with *Use for AI* on that are not drafts; research notes, programs, bounty data and evidence never enter it.
@@ -47,7 +51,7 @@ A knowledge entry can be linked to many programs without being copied. Tags and 
 - Markdown is rendered with raw HTML disabled and sanitized with Bleach; only renderer-generated classes (table alignment, attachment links) pass. Evidence is rendered by its stored type: inline images and videos, download links for everything else, and links instead of external images. Search snippets are escaped before highlighting.
 - Uploads are size-limited and stored under generated names; only raster images, audio and video are served inline.
 - The AI export replaces tokens, cookies, keys, emails, real hosts and program names before any text leaves the application.
-- Strict Content-Security-Policy, no third-party requests, no telemetry.
+- Strict Content-Security-Policy, no third-party requests in the browser, no telemetry. The one outbound request the server makes is fetching its own release manifest from GitHub, disabled with `VULNS_UPDATE_CHECK=false`; nothing is sent beyond the request itself.
 
 ## Limits
 

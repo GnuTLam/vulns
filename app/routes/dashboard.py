@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from ..stats import workspace_snapshot
+from ..update_check import update_banner
 from ..web import get_db, render, require_auth
 from .search import SAVED_FILTERS
 
@@ -19,6 +20,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "dashboard.html",
         "dashboard",
         **snapshot,
+        update_info=update_banner(request),
         max_status=max(snapshot["status_counts"].values(), default=1),
         max_severity=max(snapshot["severity_counts"].values(), default=1),
         saved_filter_queries=dict(SAVED_FILTERS),

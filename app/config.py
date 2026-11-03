@@ -23,6 +23,11 @@ class Settings:
     secure_cookies: bool
     admin_username: str = "admin"
     agent_token: str = ""
+    # In-app updates. Defaults keep tests offline; Settings.from_env enables the check.
+    update_check_enabled: bool = False
+    updater_url: str = ""
+    updater_token: str = ""
+    release_manifest_url: str = ""
 
     @property
     def markdown_dir(self) -> Path:
@@ -38,6 +43,9 @@ class Settings:
         agent_token = os.getenv("VULNS_AGENT_TOKEN", "").strip()
         if agent_token and len(agent_token) < 32:
             raise RuntimeError("VULNS_AGENT_TOKEN must be at least 32 characters")
+        updater_token = os.getenv("VULNS_UPDATER_TOKEN", "").strip()
+        if updater_token and len(updater_token) < 32:
+            raise RuntimeError("VULNS_UPDATER_TOKEN must be at least 32 characters")
         return cls(
             data_dir=data_dir,
             database_url=os.getenv("DATABASE_URL", f"sqlite:///{data_dir / 'vulns.db'}"),
@@ -47,6 +55,10 @@ class Settings:
             secure_cookies=_flag("VULNS_SECURE_COOKIES"),
             admin_username=os.getenv("VULNS_ADMIN_USERNAME", "").strip() or "admin",
             agent_token=agent_token,
+            update_check_enabled=os.getenv("VULNS_UPDATE_CHECK", "true").strip().lower() != "false",
+            updater_url=os.getenv("VULNS_UPDATER_URL", "").strip(),
+            updater_token=updater_token,
+            release_manifest_url=os.getenv("VULNS_RELEASE_MANIFEST_URL", "").strip(),
         )
 
 

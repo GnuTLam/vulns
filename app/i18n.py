@@ -299,6 +299,31 @@ TRANSLATIONS: dict[str, str] = {
     "draft_badge": "DRAFT",
     "imported_draft_notice": "Imported draft. Review the details and save to add it to your knowledge base.",
     "draft_notice": "This is a quick-capture draft. Edit and save to triage it into a full entry.",
+    "update_available": "Update available",
+    "update_version_prefix": "VulnS",
+    "update_notes": "Release notes",
+    "update_now": "Update now",
+    "update_confirm": (
+        "VulnS will back up the database, download the new version and restart. "
+        "This takes under a minute and you stay signed in. "
+        "If anything fails, the previous version is restored automatically."
+    ),
+    "update_phase_backup": "Backing up the database…",
+    "update_phase_pull": "Downloading the new version…",
+    "update_phase_swap": "Restarting VulnS…",
+    "update_phase_verify": "Verifying the new version…",
+    "update_phase_done": "Update installed.",
+    "update_phase_rolled_back": "The update failed and the previous version was restored.",
+    "update_phase_failed": "The update failed before anything changed. Nothing was modified.",
+    "update_phase_rollback_failed": (
+        "The update failed and the automatic restore failed too. Restore manually: copy a backup from the "
+        "data volume over vulns.db and restart. See the update log in the same folder."
+    ),
+    "update_phase_unknown": "Update in progress…",
+    "update_retry_hint": "Waiting for VulnS to come back…",
+    "update_error_not_configured": "One-click updates need VULNS_UPDATER_TOKEN set in .env; see the README.",
+    "update_error_unreachable": "The updater service is not running. Restart with: docker compose up -d.",
+    "update_error_no_update": "No update is available anymore. Reload the page.",
 }
 
 # Bug types are stored in display form already, so only statuses, outcomes and severities need labels.

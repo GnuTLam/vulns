@@ -14,6 +14,7 @@ A self-hosted workspace for bug bounty hunters. VulnS keeps reusable vulnerabili
 - **Portable data.** Every entry is also written as UTF-8 Markdown with YAML frontmatter; `.md` files can be imported back.
 - **Export for AI.** Every vulnerability marked *Use for AI* as one JSON file or a ZIP of Markdown files, with tokens, cookies, emails, real hosts and program names replaced.
 - **Agent API.** Seven tools exposed over WebMCP in the browser and over MCP for external clients.
+- **One-click updates.** When a new release is published, the dashboard offers an *Update now* button that backs up the database, swaps the container and verifies the result — rolling back automatically if anything fails. See [docs/UPDATES.md](docs/UPDATES.md).
 
 ## Quick start
 
@@ -23,6 +24,10 @@ Requires Docker with Compose.
 cp .env.example .env          # then set VULNS_ADMIN_PASSWORD
 docker compose up -d --build
 ```
+
+To enable one-click updates, also set `VULNS_UPDATER_TOKEN` in `.env` (any random value
+of 32+ characters). Release images are pulled from ghcr.io; the button appears on the
+dashboard whenever a newer compatible release exists.
 
 Open <http://127.0.0.1:8000> and sign in as `admin` with the password from `.env`.
 
@@ -41,6 +46,9 @@ All settings are environment variables, read from `.env` by Docker Compose.
 | `VULNS_SECURE_COOKIES` | `false` | Send the session cookie over HTTPS only |
 | `VULNS_MAX_UPLOAD_MB` | `50` | Maximum size per uploaded file |
 | `VULNS_AGENT_TOKEN` | empty | Bearer token for the MCP endpoint (32+ characters); empty disables it |
+| `VULNS_UPDATER_TOKEN` | empty | Shared secret for one-click updates (32+ characters); empty disables the Update button |
+| `VULNS_UPDATE_CHECK` | `true` | Check GitHub for a newer release and offer the update |
+| `VULNS_VERSION` | `latest` | Image tag to run; the updater sets this when you update in-app |
 | `VULNS_PORT` | `8000` | Host port published by Docker Compose |
 
 ## Local development
@@ -110,6 +118,7 @@ Everything lives in the `vulns_data` volume (`/data` in the container):
 | `vulns.db` | SQLite database |
 | `markdown/` | one Markdown file per knowledge entry |
 | `evidence/` | uploaded files |
+| `backups/` | pre-update database snapshots and the update log |
 | `.session-secret` | generated session secret, when none is configured |
 
 Back up the whole directory while the container is running:
@@ -130,11 +139,14 @@ app/
   agent.py           agent tools, WebMCP and MCP endpoints
   search.py          query language and ranked search
   database.py        schema migration, FTS5 index and relation signals
+  update_check.py    release manifest check for in-app updates
+  version.py         app and schema version of the running build
   export.py          AI export as JSON or Markdown
   redaction.py       secret and identifier redaction for the export
   markdown_*.py      Markdown files and import
   templates/         Jinja templates
   static/            CSS, JavaScript and icons
+updater/             the sidecar that applies one-click updates
 tests/               pytest suite
-docs/                architecture, agent API and UI guidelines
+docs/                architecture, agent API, updates and UI guidelines
 ```

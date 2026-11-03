@@ -4388,3 +4388,28 @@ body.drawer-open {
     font-size: 9.5px;
   }
 }
+
+/* Update banner: offered on the dashboard when a newer compatible release exists. */
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-left: 3px solid var(--accent);
+  padding: 14px 16px;
+}
+.update-banner-info {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.update-banner-info strong {
+  color: var(--accent);
+}
+.update-detail {
+  color: var(--muted);
+  width: 100%;
+}
