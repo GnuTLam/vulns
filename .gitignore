@@ -15,3 +15,6 @@ data/
 .DS_Store
 Thumbs.db
 docker-compose.override.yml
+
+# Test suite, kept local only
+tests/
