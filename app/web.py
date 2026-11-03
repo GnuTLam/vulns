@@ -43,8 +43,35 @@ def format_money_input(amount: float | None) -> str:
     return f"{amount:.0f}" if float(amount).is_integer() else f"{amount:.2f}".rstrip("0")
 
 
+def format_money_compact(amount: float | None) -> str:
+    """A short amount for chart labels: ``850``, ``1.2K``, ``15M``."""
+    if not amount:
+        return ""
+    for size, suffix in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
+        if abs(amount) >= size:
+            return f"{amount / size:.1f}".removesuffix(".0") + suffix
+    return f"{amount:.0f}"
+
+
 templates.env.filters["money"] = format_money
 templates.env.filters["money_input"] = format_money_input
+templates.env.filters["money_compact"] = format_money_compact
+
+
+def report_url(entry: KnowledgeEntry) -> str:
+    """Where a report is read: the page of its first vulnerability, or the unfiled list when no program has it."""
+    if not entry.findings:
+        return "/findings/unfiled"
+    return min(entry.findings, key=lambda finding: (finding.created_at, finding.id)).url
+
+
+def report_edit_url(entry: KnowledgeEntry) -> str:
+    """Where a report is edited; an unfiled report can only be filed to a program first."""
+    return f"{report_url(entry)}/edit" if entry.findings else "/findings/unfiled"
+
+
+templates.env.globals["report_url"] = report_url
+templates.env.globals["report_edit_url"] = report_edit_url
 
 
 def _asset_hash() -> str:
@@ -262,28 +289,25 @@ def get_finding(db: Session, finding_id: str) -> Finding:
     return item
 
 
-def explorer_values(
-    db: Session,
-    current_program_id: str = "",
-    current_knowledge_id: str = "",
-    current_finding_id: str = "",
-) -> dict:
-    """The program tree in the sidebar, with the open record highlighted."""
+def explorer_values(db: Session, current_program_id: str = "") -> dict:
+    """The program tree in the sidebar, with the open program highlighted."""
     programs = (
         db.query(Program)
         .options(selectinload(Program.findings).selectinload(Finding.knowledge))
         .order_by(Program.archived, Program.name)
         .all()
     )
-    return {
-        "explorer_programs": programs,
-        "explorer_current_program": current_program_id,
-        "explorer_current_knowledge": current_knowledge_id,
-        "explorer_current_finding": current_finding_id,
-    }
+    return {"explorer_programs": programs, "explorer_current_program": current_program_id}
+
+
+def local_path(value: str, fallback: str) -> str:
+    """``value`` when it is a path on this site, so a form cannot be used as an open redirect."""
+    return value if value.startswith("/") and not value.startswith(("//", "/\\")) else fallback
 
 
 def refresh_markdown(request: Request, db: Session, *entries: KnowledgeEntry) -> None:
-    """Rewrite the Markdown file of each entry."""
+    """Rewrite the Markdown file of each entry from the committed state."""
+    # Sessions keep loaded objects across a commit; reload them so a moved or deleted program is not written out.
+    db.expire_all()
     for entry in entries:
         sync_markdown(request.app.state.settings.markdown_dir, entry, session=db)

@@ -12,6 +12,8 @@ VulnS is an operator workspace. Every screen should answer one of three question
 
 ## Layout and density
 
+- One vulnerability, one page: it opens full width at `/findings/{id}`, never in a side panel, and one form creates or edits its report, submission and bounty together.
+- A list is not repeated beside itself: the program explorer appears on a program's pages and forms, not on the programs table.
 - Prefer one bordered container with internal dividers over several adjacent cards.
 - Keep controls together and separate from results.
 - Tables are for full registries; dashboard summaries use compact lists.
@@ -29,15 +31,16 @@ VulnS is an operator workspace. Every screen should answer one of three question
 
 ## Information
 
-- Never rely on colour alone. Severity uses one to five bars plus a text label; status uses text plus a dot.
-- Charts repeat their values as text.
+- Never rely on colour alone. Severity uses one to five bars plus a text label (written out in tables); status uses text plus a dot.
+- Charts repeat their values as text: totals above the bars, months named.
 - Group work by reason: the group heading states the status once, rows only call out exceptions.
 - Empty states are explicit. An empty workspace shows a single getting-started panel instead of zeros.
 - Amounts in different currencies are never added together.
 
 ## Interaction
 
-- Registry rows open the record drawer; links inside rows stay keyboard accessible.
+- Registry rows open the vulnerability page; links inside rows stay keyboard accessible.
+- Frequent changes (status, outcome, reward, paid) are one step on the vulnerability page and date themselves; the full form is for everything else. Secondary actions sit in a *More* menu.
 - Destructive actions sit behind a disclosure and a confirmation dialog.
 - Client-side validation is a convenience; the server is authoritative.
 - Motion is brief and respects `prefers-reduced-motion`.

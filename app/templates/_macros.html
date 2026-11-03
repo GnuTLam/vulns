@@ -1,7 +1,7 @@
 {# Fragments shared by several pages. Import with: {% import "_macros.html" as ui with context %} #}
 
 {% macro tag_links(tags) -%}
-  {% for tag in tags %}<a class="tag" href="/knowledge?tag={{ tag.name|urlencode }}">{{ tag.name }}</a>{% endfor %}
+  {% for tag in tags %}<a class="tag" href="/findings?q=tag%3A{{ tag.name|urlencode }}">{{ tag.name }}</a>{% endfor %}
 {%- endmacro %}
 
 {% macro query_warnings(warnings, class="") -%}
@@ -20,6 +20,11 @@
   </span>
 {%- endmacro %}
 
+{# Signal bars with the level written next to them, for table cells. #}
+{% macro severity_label(severity) -%}
+  <span class="severity-label"><span class="severity {{ severity }}" aria-hidden="true"></span>{{ humanize(severity) }}</span>
+{%- endmacro %}
+
 {# Whether a recorded reward has been received; nothing when no reward is recorded. #}
 {% macro paid_badge(finding) -%}
   {% if finding.total_reward is not none %}
@@ -27,25 +32,50 @@
   {% endif %}
 {%- endmacro %}
 
-{# Reward and response-time facts of a submission; renders nothing when none are known. #}
-{% macro reward_facts(finding) -%}
-  {% if finding.total_reward is not none %}
-    <div>
-      <p class="k">{{ tr.total_reward }}</p>
-      <p class="v">{{ money(finding.total_reward, finding.currency) }} {{ paid_badge(finding) }}</p>
-    </div>
-  {% endif %}
-  {% for label, days in [(tr.days_to_triage, finding.days_to_triage), (tr.days_to_reward, finding.days_to_reward), (tr.days_to_resolve, finding.days_to_resolve)] %}
-    {% if days is not none %}
-      <div>
-        <p class="k">{{ label }}</p>
-        <p class="v num">{{ days }}</p>
-      </div>
-    {% endif %}
-  {% endfor %}
+{# One row per vulnerability, as listed on the vulnerabilities page and on a program; a row opens its vulnerability. #}
+{% macro vulnerability_table(items, show_program=true) -%}
+  <div class="table-wrap">
+    <table class="registry-table vulnerability-table">
+      <thead>
+        <tr>
+          <th>{{ tr.title }}</th>
+          {% if show_program %}<th>{{ tr.program }}</th>{% endif %}
+          <th>{{ tr.severity }}</th>
+          <th>{{ tr.status }}</th>
+          <th>{{ tr.bounty }}</th>
+          <th>{{ tr.updated }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for finding in items %}
+          <tr data-row-href="{{ finding.url }}">
+            <td>
+              <a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
+              <small>
+                {{- finding.knowledge.bug_type }}
+                {%- if finding.report_id %} · {{ finding.report_id }}{% endif %}
+                {%- if finding.knowledge.is_draft %} · <span class="draft-badge">{{ tr.draft_badge }}</span>{% endif -%}
+              </small>
+            </td>
+            {% if show_program %}<td><a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a></td>{% endif %}
+            <td>{{ severity_label(finding.severity) }}</td>
+            <td><span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span></td>
+            <td>
+              {%- if finding.total_reward is not none -%}
+                <span class="bounty-cell">{{ money(finding.total_reward, finding.currency) }}{{ paid_badge(finding) }}</span>
+              {%- else -%}
+                <span class="muted">—</span>
+              {%- endif -%}
+            </td>
+            <td class="mono-cell">{{ finding.updated_at.strftime("%Y-%m-%d") }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 {%- endmacro %}
 
-{% macro rediscover_panel(items, help, query="") -%}
+{% macro rediscover_panel(items, help) -%}
   <section class="panel">
     <div class="panel-head">
       <p class="section-label">{{ tr.rediscover }}</p>
@@ -54,9 +84,10 @@
     <p class="panel-note">{{ help }}</p>
     <div class="related-list rediscover-list">
       {% for item in items %}
-        <a class="rediscover-item" href="/knowledge/{{ item.id }}{{ query }}">
+        <a class="rediscover-item" href="{{ item.url }}">
           <span>{{ item.title }}</span>
-          <small>{% for reason in item.reasons %}{{ tr['relate_reason_' + reason] }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
+          {# A text-only match is already what the panel says, so it adds nothing as a reason. #}
+          <small>{% for reason in item.reasons if reason != "fts" %}{{ tr['relate_reason_' + reason] }} · {% endfor %}{{ item.bug_type }}</small>
         </a>
       {% endfor %}
     </div>

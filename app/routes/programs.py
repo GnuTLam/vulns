@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..database import push_rediscovery_for_signals
 from ..forms import lf, program_name
-from ..models import Program
+from ..models import KnowledgeEntry, Program
 from ..security import validate_csrf, validate_external_url
-from ..stats import response_metrics, rewards_by_currency
+from ..stats import earnings_by_currency, program_counts, response_metrics
+from ..vulns import with_report_urls
 from ..web import explorer_values, get_db, get_knowledge, get_program, refresh_markdown, render, require_auth
 
 router = APIRouter(dependencies=[Depends(require_auth)])
@@ -38,23 +39,29 @@ def rediscovery_for_program(db: Session, program: Program) -> list[dict]:
         if entry.technology:
             tech_counts[entry.technology] += 1
         tag_counter.update(entry.tag_names)
-    return push_rediscovery_for_signals(
+    return with_report_urls(
         db,
-        cwe=cwe_counts.most_common(1)[0][0] if cwe_counts else "",
-        bug_type=bug_counts.most_common(1)[0][0] if bug_counts else "",
-        technology=", ".join(tech for tech, _ in tech_counts.most_common(3)),
-        title=" ".join(entry.title for entry in linked[:8]),
-        summary=program.notes or "",
-        tags=[name for name, _count in tag_counter.most_common(5)],
-        limit=6,
-        exclude_ids={entry.id for entry in linked},
+        push_rediscovery_for_signals(
+            db,
+            cwe=cwe_counts.most_common(1)[0][0] if cwe_counts else "",
+            bug_type=bug_counts.most_common(1)[0][0] if bug_counts else "",
+            technology=", ".join(tech for tech, _ in tech_counts.most_common(3)),
+            title=" ".join(entry.title for entry in linked[:8]),
+            summary=program.notes or "",
+            tags=[name for name, _count in tag_counter.most_common(5)],
+            limit=6,
+            exclude_ids={entry.id for entry in linked},
+        ),
     )
 
 
 @router.get("/programs", response_class=HTMLResponse)
 def programs(request: Request, db: Session = Depends(get_db)):
     items = db.query(Program).options(selectinload(Program.findings)).order_by(Program.archived, Program.name).all()
-    return render(request, "programs.html", "programs", programs=items, **explorer_values(db))
+    counts = {item.id: program_counts(item.findings) for item in items}
+    earned = {item.id: earnings_by_currency(item.findings) for item in items}
+    # The table lists every program, so the explorer would only repeat it.
+    return render(request, "programs.html", "programs", programs=items, counts=counts, earned=earned)
 
 
 @router.get("/programs/new", response_class=HTMLResponse)
@@ -97,7 +104,8 @@ def program_detail(request: Request, program_id: str, db: Session = Depends(get_
         "programs",
         program=item,
         rediscover=rediscovery_for_program(db, item),
-        earnings=rewards_by_currency(item.findings),
+        counts=program_counts(item.findings),
+        earnings=earnings_by_currency(item.findings),
         metrics=response_metrics(item.findings),
         **explorer_values(db, current_program_id=item.id),
     )
@@ -163,7 +171,11 @@ def program_delete(request: Request, program_id: str, csrf: str = Form(...), db:
     affected_ids = list(dict.fromkeys(finding.knowledge_id for finding in item.findings))
     db.delete(item)
     db.commit()
-    # Only the program's findings are deleted. Knowledge and evidence stay, so refresh their Markdown.
+    # Only the program's findings are deleted. Reports and evidence stay, so refresh their Markdown.
     db.expire_all()
     refresh_markdown(request, db, *(get_knowledge(db, knowledge_id) for knowledge_id in affected_ids))
-    return RedirectResponse("/knowledge?q=is%3Aorphan", status_code=303)
+    left_unfiled = (
+        db.query(KnowledgeEntry.id).filter(KnowledgeEntry.id.in_(affected_ids), ~KnowledgeEntry.findings.any()).first()
+        is not None
+    )
+    return RedirectResponse("/findings/unfiled" if left_unfiled else "/programs", status_code=303)

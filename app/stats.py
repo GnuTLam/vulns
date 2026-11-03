@@ -1,5 +1,6 @@
-"""Figures shown on the dashboard, program and earnings pages, and returned by the agent overview."""
+"""Figures shown on the dashboard, program pages and bounty tab, and returned by the agent overview."""
 
+from calendar import month_abbr
 from collections import Counter
 from datetime import date
 
@@ -80,6 +81,11 @@ def draft_count(db: Session) -> int:
     return db.query(func.count(KnowledgeEntry.id)).filter(KnowledgeEntry.is_draft.is_(True)).scalar() or 0
 
 
+def unfiled_count(db: Session) -> int:
+    """Reports no program has."""
+    return db.query(func.count(KnowledgeEntry.id)).filter(~KnowledgeEntry.findings.any()).scalar() or 0
+
+
 def workspace_snapshot(db: Session) -> dict:
     """Dashboard figures, shared by the dashboard page and the agent ``get_overview`` tool."""
     program_count = db.query(func.count(Program.id)).filter(Program.archived.is_(False)).scalar() or 0
@@ -116,6 +122,7 @@ def workspace_snapshot(db: Session) -> dict:
         "knowledge_count": knowledge_count,
         "finding_total": len(all_findings),
         "draft_count": drafts_total,
+        "unfiled_count": unfiled_count(db),
         # Matches the `is:open` search the dashboard card links to.
         "open_count": sum(1 for f in all_findings if f.status not in CLOSED_STATUSES),
         "accepted_count": sum(1 for f in all_findings if f.outcome == "accepted"),
@@ -139,14 +146,24 @@ def _bucket(rows: dict[str, dict], key: str, finding: Finding) -> None:
     row["count"] += 1
 
 
-def earnings_report(db: Session, period: str = "", currency: str = "") -> dict:
-    """The earnings page: paid and owed rewards per currency, by period, program and severity.
+def program_counts(findings) -> dict[str, int]:
+    """Vulnerabilities of a program: all, still open (not done) and accepted by the program."""
+    return {
+        "total": len(findings),
+        "open": sum(1 for f in findings if f.status not in CLOSED_STATUSES),
+        "accepted": sum(1 for f in findings if f.outcome == "accepted"),
+    }
+
+
+def earnings_report(db: Session, period: str = "", currency: str = "", program_id: str = "") -> dict:
+    """The bounty tab: paid and owed rewards per currency, by period, program and severity.
 
     ``period`` is a four-digit year, ``all``, or empty for the latest year with rewards. A
-    reward counts towards the period of ``Finding.earned_on``. Money still owed is listed
-    whatever the period, since it is outstanding either way.
+    reward counts towards the period of ``Finding.earned_on``. ``program_id`` narrows every
+    figure to one program. Money still owed is listed whatever the period, since it is
+    outstanding either way.
     """
-    rewarded = [
+    everything = [
         finding
         for finding in db.query(Finding)
         .options(selectinload(Finding.program), selectinload(Finding.knowledge))
@@ -154,6 +171,7 @@ def earnings_report(db: Session, period: str = "", currency: str = "") -> dict:
         .all()
         if finding.total_reward is not None
     ]
+    rewarded = [f for f in everything if not program_id or f.program_id == program_id]
     years = sorted({int(f.earned_on[:4]) for f in rewarded if f.earned_on[:4].isdigit()}, reverse=True)
     if period.isdigit() and len(period) == 4:
         year: int | None = int(period)
@@ -176,14 +194,20 @@ def earnings_report(db: Session, period: str = "", currency: str = "") -> dict:
         timeline = {label: {"paid": 0.0, "unpaid": 0.0, "count": 0} for label in labels}
         for finding in chosen:
             _bucket(timeline, finding.earned_on[:7], finding)
-    periods = [{"label": label, **timeline[label]} for label in labels if label in timeline]
+    # The axis shows "Jan" for a month and the year itself for a year.
+    periods = [
+        {"label": label, "axis": month_abbr[int(label[5:])] if year is not None else label, **timeline[label]}
+        for label in labels
+        if label in timeline
+    ]
     peak = max((row["paid"] + row["unpaid"] for row in periods), default=0.0)
 
     programs: dict[str, dict] = {}
     for finding in chosen:
-        _bucket(programs, finding.program.name if finding.program else "", finding)
+        _bucket(programs, finding.program_id, finding)
+        programs[finding.program_id]["name"] = finding.program.name
     by_program = sorted(
-        ({"name": name, **row} for name, row in programs.items()),
+        ({"id": program, **row} for program, row in programs.items()),
         key=lambda row: -(row["paid"] + row["unpaid"]),
     )
     severities: dict[str, dict] = {}
@@ -197,6 +221,7 @@ def earnings_report(db: Session, period: str = "", currency: str = "") -> dict:
     )
     today = date.today().isoformat()
     return {
+        "any_rewards": bool(everything),
         "years": years,
         "selected_year": year,
         "summary": summary,
@@ -207,6 +232,7 @@ def earnings_report(db: Session, period: str = "", currency: str = "") -> dict:
         "by_severity": by_severity,
         "severity_peak": max((row["paid"] + row["unpaid"] for row in by_severity), default=0.0),
         "metrics": response_metrics(chosen),
+        "ledger": sorted(chosen, key=lambda f: (f.earned_on, f.id), reverse=True),
         "unpaid": [(f, day_gap(f.rewarded_at or f.earned_on, today)) for f in unpaid],
         "unpaid_totals": earnings_by_currency(unpaid),
     }

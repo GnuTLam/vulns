@@ -5,8 +5,8 @@
 - MCP: ``POST /mcp`` (JSON-RPC) for external clients, authenticated with
   ``VULNS_AGENT_TOKEN``.
 
-Write tools call the same route handlers as the web forms, so validation, Markdown
-files and search indexing behave exactly as they do for a manual edit.
+Write tools call the same service functions (app/vulns.py) as the web forms, so validation,
+Markdown files and search indexing behave exactly as they do for a manual edit.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from __future__ import annotations
 import hmac
 import json
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
@@ -22,18 +22,17 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from .database import backlink_entries
-from .forms import build_bounty
+from .forms import build_bounty, build_report, build_submission
 from .markdown_import import MarkdownImportError, parse_markdown_upload
 from .models import Evidence, Finding, KnowledgeEntry, Program
-from .routes.evidence import evidence_delete
-from .routes.findings import finding_create, finding_delete, finding_edit
-from .routes.knowledge import knowledge_create, knowledge_delete, knowledge_edit
+from .routes.evidence import remove_evidence
 from .routes.programs import program_create, program_delete, program_edit
 from .search import parse_query, plain_snippet, run_search
 from .security import authenticated, csrf_token
 from .stats import response_metrics, rewards_by_currency, workspace_snapshot
 from .taxonomy import BUG_TYPES, CURRENCIES, DEFAULT_CURRENCY, OUTCOMES, SEVERITIES, STATUSES
-from .web import refresh_markdown
+from .vulns import create_finding, create_report, delete_finding, delete_report, update_finding, update_report
+from .web import get_knowledge, report_url
 
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_VERSION = "1.0.0"
@@ -413,7 +412,7 @@ def knowledge_detail(db: Session, entry: KnowledgeEntry) -> dict:
             for item in entry.evidence
         ],
         "updated_at": _when(entry.updated_at),
-        "link": f"/knowledge/{entry.id}",
+        "link": report_url(entry),
     }
 
 
@@ -515,7 +514,7 @@ def tool_get_overview(db: Session, _request: Request, _args: dict) -> dict:
             },
             "drafts_to_finish": {
                 "count": snap["attention_groups"]["drafts"],
-                "newest_first": [{**_entry_ref(e), "link": f"/knowledge/{e.id}"} for e in snap["drafts"]],
+                "newest_first": [{**_entry_ref(e), "link": report_url(e)} for e in snap["drafts"]],
             },
         },
         "earnings": [
@@ -595,7 +594,7 @@ def _recent_rows(db: Session, kind: str, window: int) -> tuple[list[dict], int]:
                 "programs": [f.program.name for f in e.findings if f.program],
                 "evidence_count": len(e.evidence),
                 "updated_at": _when(e.updated_at),
-                "link": f"/knowledge/{e.id}",
+                "link": report_url(e),
             }
             for e in query.limit(window)
         ]
@@ -627,7 +626,7 @@ def tool_search(db: Session, _request: Request, args: dict) -> dict:
         warnings = list(parsed.warnings)
         if parsed.is_empty:
             raise ToolError("The query has no searchable words or filters")
-        results = run_search(db, parsed, limit=window)
+        results = run_search(db, parsed, limit=window, unfiled_only=False)
         rows = [_search_row(item) for item in [*results["knowledge"], *results["findings"], *results["programs"]]]
         total = results["total"]
     page = rows[offset : offset + limit]
@@ -643,12 +642,9 @@ def tool_get_record(db: Session, _request: Request, args: dict) -> dict:
     return _detail(db, args["kind"], args["id"])
 
 
-def _id_from_location(response: Response, pattern: str) -> str:
-    location = response.headers.get("location", "")
-    parts = urlsplit(location)
-    if pattern == "finding_id":
-        return parse_qs(parts.query).get("finding_id", [""])[0]
-    segments = parts.path.strip("/").split("/")
+def _id_from_location(response: Response) -> str:
+    """The record id in the second segment of a redirect such as ``/programs/<id>``."""
+    segments = urlsplit(response.headers.get("location", "")).path.strip("/").split("/")
     return segments[1] if len(segments) > 1 else ""
 
 
@@ -685,7 +681,7 @@ def tool_save_program(db: Session, request: Request, args: dict) -> dict:
         csrf=token,
         db=db,
     )
-    return {"created": True, "program": _detail(db, "program", _id_from_location(response, "path"))}
+    return {"created": True, "program": _detail(db, "program", _id_from_location(response))}
 
 
 _KNOWLEDGE_TEXT = (
@@ -701,25 +697,23 @@ _KNOWLEDGE_TEXT = (
 
 
 async def tool_save_knowledge(db: Session, request: Request, args: dict) -> dict:
-    token = _form_token(request)
     record_id = args.get("id")
     if record_id and "source_markdown" in args:
         raise ToolError("source_markdown is only for creating; send markdown to change an existing report")
-    common = {"uploads": None, "csrf": token, "db": db}
     if record_id:
         current = _load(db, "knowledge", record_id)
-        was_draft = current.is_draft
-        fields = {name: args.get(name, getattr(current, name)) for name in _KNOWLEDGE_TEXT}
-        fields["title"] = args.get("title", current.title)
-        fields["bug_type"] = args.get("bug_type", current.bug_type)
-        fields["default_severity"] = args.get("severity", current.default_severity)
-        fields["cvss_score"] = _text(args.get("cvss_score", current.cvss_score))
-        fields["related_ids"] = list(args.get("related_ids", current.related_ids))
-        fields["tags"] = ", ".join(args["tags"]) if "tags" in args else None
-        fields["use_for_ai"] = _flag_values(args.get("use_for_ai"))
-        await knowledge_edit(request, record_id, **fields, **common)
+        report = build_report(
+            title=args.get("title", current.title),
+            bug_type=args.get("bug_type", current.bug_type),
+            severity=args.get("severity", current.default_severity),
+            cvss_score=_text(args.get("cvss_score", current.cvss_score)),
+            related_ids=list(args.get("related_ids", current.related_ids)),
+            tags=", ".join(args["tags"]) if "tags" in args else None,
+            use_for_ai=args.get("use_for_ai"),
+            **{name: args.get(name, getattr(current, name)) for name in _KNOWLEDGE_TEXT},
+        )
         # Unlike the web form, an agent edit keeps the draft flag unless `draft` is given.
-        _set_draft(db, request, record_id, args.get("draft", was_draft))
+        await update_report(request, db, current, report, draft=bool(args.get("draft", current.is_draft)))
         return {"created": False, "knowledge": _detail(db, "knowledge", record_id)}
 
     imported: dict = {}
@@ -755,35 +749,18 @@ async def tool_save_knowledge(db: Session, request: Request, args: dict) -> dict
     missing = [name for name in ("title", "bug_type", "severity") if not values.get(name)]
     if missing:
         raise ToolError(f"Missing {missing} to create a knowledge entry")
-    response = await knowledge_create(
-        request,
+    report = build_report(
         title=values["title"],
         bug_type=values["bug_type"],
-        default_severity=values["severity"],
+        severity=values["severity"],
         cvss_score=_text(values.get("cvss_score")),
         related_ids=list(values.get("related_ids", [])),
         tags=", ".join(values.get("tags", [])),
-        use_for_ai=_flag_values(values.get("use_for_ai")),
+        use_for_ai=values.get("use_for_ai"),
         **{name: values.get(name, "") for name in _KNOWLEDGE_TEXT},
-        **common,
     )
-    new_id = _id_from_location(response, "path")
-    _set_draft(db, request, new_id, values.get("draft", draft_default))
-    return {"created": True, "knowledge": _detail(db, "knowledge", new_id)}
-
-
-def _flag_values(value: bool | None) -> list[str] | None:
-    """A boolean in the shape the form handlers receive from a checkbox."""
-    return None if value is None else (["1"] if value else ["0"])
-
-
-def _set_draft(db: Session, request: Request, record_id: str, draft: bool) -> None:
-    db.expire_all()
-    entry = _load(db, "knowledge", record_id)
-    if entry.is_draft != bool(draft):
-        entry.is_draft = bool(draft)
-        db.commit()
-        refresh_markdown(request, db, entry)
+    entry = await create_report(request, db, report, draft=bool(values.get("draft", draft_default)))
+    return {"created": True, "knowledge": _detail(db, "knowledge", entry.id)}
 
 
 _FINDING_TEXT = ("target", "scope", "report_id", "report_url", "discovered_at", "submitted_at", "private_notes")
@@ -801,7 +778,6 @@ _BOUNTY = (
 
 
 def tool_save_finding(db: Session, request: Request, args: dict) -> dict:
-    token = _form_token(request)
     record_id = args.get("id")
     current = _load(db, "finding", record_id) if record_id else None
 
@@ -821,23 +797,18 @@ def tool_save_finding(db: Session, request: Request, args: dict) -> dict:
         **{name: _text(pick(name, DEFAULT_CURRENCY if name == "currency" else "")) for name in _BOUNTY},
         is_paid=bool(pick("is_paid", False)),
     )
-    fields = {
-        "program_id": pick("program_id"),
-        "knowledge_id": pick("knowledge_id"),
-        "status": pick("status", "submitted"),
-        "outcome": pick("outcome", ""),
-        "severity": pick("severity", knowledge_severity or "medium"),
+    submission = build_submission(
+        status=pick("status", "submitted"),
+        outcome=pick("outcome", ""),
+        severity=pick("severity", knowledge_severity or "medium"),
         **{name: _text(pick(name)) for name in _FINDING_TEXT},
-        "bounty": bounty,
-        "csrf": token,
-        "db": db,
-    }
+    )
+    entry = get_knowledge(db, pick("knowledge_id"))
     if current is not None:
-        finding_edit(request, record_id, **fields)
-        db.expire_all()
+        update_finding(request, db, current, entry, pick("program_id"), submission, bounty)
         return {"created": False, "finding": _detail(db, "finding", record_id)}
-    response = finding_create(request, **fields)
-    return {"created": True, "finding": _detail(db, "finding", _id_from_location(response, "finding_id"))}
+    finding = create_finding(request, db, entry, args["program_id"], submission, bounty)
+    return {"created": True, "finding": _detail(db, "finding", finding.id)}
 
 
 def tool_delete_record(db: Session, request: Request, args: dict) -> dict:
@@ -849,13 +820,14 @@ def tool_delete_record(db: Session, request: Request, args: dict) -> dict:
         or getattr(item, "filename", None)
         or (item.knowledge.title if isinstance(item, Finding) and item.knowledge else record_id)
     )
-    handler = {
-        "program": program_delete,
-        "knowledge": knowledge_delete,
-        "finding": finding_delete,
-        "evidence": evidence_delete,
-    }[kind]
-    handler(request, record_id, csrf=_form_token(request), db=db)
+    if kind == "program":
+        program_delete(request, record_id, csrf=_form_token(request), db=db)
+    elif kind == "knowledge":
+        delete_report(request, db, item)
+    elif kind == "finding":
+        delete_finding(request, db, item)
+    else:
+        remove_evidence(request, db, item)
     return {"deleted": {"kind": kind, "id": record_id, "label": label}}
 
 

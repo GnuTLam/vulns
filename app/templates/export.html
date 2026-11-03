@@ -2,7 +2,7 @@
 {% block title %}{{ tr.export_for_ai }}{% endblock %}
 {% block content %}
   <div class="toolbar">
-    <div class="crumbs"><a href="/knowledge">{{ tr.knowledge }}</a><i>/</i><strong>{{ tr.export_for_ai }}</strong></div>
+    <div class="crumbs"><strong>{{ tr.export_for_ai }}</strong></div>
     <div class="toolbar-actions">
       <a class="button" href="/knowledge/export.zip">{{ tr.download_markdown_zip }}</a>
       <a class="button primary" href="/knowledge/export.json">{{ tr.download_json }}</a>
@@ -24,7 +24,7 @@
         {% if included %}
           <div class="linked-list">
             {% for entry in included %}
-              <a href="/knowledge/{{ entry.id }}">
+              <a href="{{ report_url(entry) }}">
                 <span>
                   <strong>{{ entry.title }}</strong>
                   <small>{{ entry.bug_type }}{% if entry.tags %} · {{ entry.tag_names|join(", ") }}{% endif %}</small>
@@ -45,7 +45,7 @@
           {% if excluded %}
             <div class="linked-list">
               {% for entry in excluded %}
-                <a href="/knowledge/{{ entry.id }}/edit"><span><strong>{{ entry.title }}</strong><small>{{ entry.bug_type }}</small></span></a>
+                <a href="{{ report_edit_url(entry) }}"><span><strong>{{ entry.title }}</strong><small>{{ entry.bug_type }}</small></span></a>
               {% endfor %}
             </div>
           {% else %}
@@ -61,7 +61,7 @@
           {% if drafts %}
             <div class="linked-list">
               {% for entry in drafts %}
-                <a href="/knowledge/{{ entry.id }}/edit"><span><strong>{{ entry.title }}</strong><small>{{ entry.bug_type }}</small></span></a>
+                <a href="{{ report_edit_url(entry) }}"><span><strong>{{ entry.title }}</strong><small>{{ entry.bug_type }}</small></span></a>
               {% endfor %}
             </div>
           {% else %}

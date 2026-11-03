@@ -38,20 +38,23 @@
         <p>{{ tr.first_steps_help }}</p>
         <div class="empty-actions">
           <a class="button" href="/programs/new">{{ tr.new_program }}</a>
-          <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+          <a class="button primary" href="/findings/new">{{ tr.new_vulnerability }}</a>
         </div>
-        <a class="onboarding-alt" href="/knowledge/import">{{ tr.or_import_markdown }}</a>
+        <a class="onboarding-alt" href="/findings/import">{{ tr.or_import_markdown }}</a>
       </section>
     {% else %}
-      <section class="dashboard-metrics" aria-label="{{ tr.registry_summary }}">
-        {% for metric, href, label, value in [
-          ("open", "/findings?q=is%3Aopen", tr.open_vulnerabilities, open_count),
-          ("accepted", "/findings?q=outcome%3Aaccepted", tr.accepted_or_later, accepted_count),
-          ("vulnerabilities", "/findings", tr.total_vulnerabilities, finding_total),
-          ("rewarded", "/findings?q=has%3Areward", tr.rewarded, metrics.rewarded_count),
-          ("knowledge", "/knowledge", tr.total_knowledge, knowledge_count),
-          ("programs", "/programs", tr.active_programs, program_count),
-        ] %}
+      {% set dashboard_metrics = [
+        ("open", "/findings?q=is%3Aopen", tr.open_vulnerabilities, open_count),
+        ("accepted", "/findings?q=outcome%3Aaccepted", tr.accepted_or_later, accepted_count),
+        ("vulnerabilities", "/findings", tr.total_vulnerabilities, finding_total),
+        ("rewarded", "/findings?q=has%3Areward", tr.rewarded, metrics.rewarded_count),
+        ("programs", "/programs", tr.active_programs, program_count),
+      ] %}
+      {% if unfiled_count %}
+        {% set dashboard_metrics = dashboard_metrics + [("unfiled", "/findings/unfiled", tr.unfiled_reports, unfiled_count)] %}
+      {% endif %}
+      <section class="dashboard-metrics" style="--metric-count: {{ dashboard_metrics|length }}" aria-label="{{ tr.registry_summary }}">
+        {% for metric, href, label, value in dashboard_metrics %}
           <a href="{{ href }}" data-dashboard-metric="{{ metric }}">
             <span>{{ label }}</span>
             <strong>{{ value }}</strong>
@@ -106,7 +109,7 @@
             {% if unpaid %}
               {{ queue_group(tr.unpaid_accepted, attention_groups.unpaid, unpaid|length, saved_filter_queries.unpaid_accepted) }}
               {% for finding in unpaid %}
-                <a class="queue-row" href="/findings/{{ finding.id }}/edit">
+                <a class="queue-row" href="{{ finding.url }}">
                   <span class="queue-main">
                     <strong>{{ finding.knowledge.title }}</strong>
                     <small>
@@ -122,7 +125,7 @@
             {% if drafts %}
               {{ queue_group(tr.drafts_to_finish, attention_groups.drafts, drafts|length, saved_filter_queries.needs_triage) }}
               {% for entry in drafts %}
-                <a class="queue-row" href="/knowledge/{{ entry.id }}/edit">
+                <a class="queue-row" href="{{ report_url(entry) }}">
                   <span class="queue-main">
                     <strong>{{ entry.title }}</strong>
                     <small>{{ entry.summary|truncate(70) if entry.summary else entry.bug_type }}</small>
@@ -149,9 +152,9 @@
           {% if recent_findings %}
             <div class="recent-list">
               {% for finding in recent_findings %}
-                <article class="recent-row" data-record-panel="{{ finding.panel_url }}">
+                <a class="recent-row" href="{{ finding.url }}">
                   <div class="recent-main">
-                    <a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
+                    <strong>{{ finding.knowledge.title }}</strong>
                     <small>
                       {%- if finding.target %}{{ finding.target }} · {% endif -%}
                       {{ finding.knowledge.bug_type }} · {{ finding.program.name -}}
@@ -159,7 +162,7 @@
                   </div>
                   <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
                   <span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span>
-                </article>
+                </a>
               {% endfor %}
             </div>
           {% elif finding_total %}
@@ -170,7 +173,7 @@
               <p>{{ tr.first_steps_help }}</p>
               <div class="empty-actions">
                 <a class="button" href="/programs/new">{{ tr.new_program }}</a>
-                <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+                <a class="button primary" href="/findings/new">{{ tr.new_vulnerability }}</a>
               </div>
             </div>
           {% endif %}
@@ -180,14 +183,14 @@
           <section class="panel">
             <div class="panel-head">
               <h2 class="section-label">{{ tr.earnings }}</h2>
-              <a class="meta" href="/earnings">{{ tr.view_all }}</a>
+              <a class="meta" href="/findings?tab=bounty">{{ tr.view_all }}</a>
             </div>
             <dl class="ledger">
               {% for row in earnings_split %}
                 <div>
                   <dt>{{ ui.money(row.total, row.currency) }}</dt>
                   <dd>
-                    {%- if row.unpaid %}<a class="paid-badge is-unpaid" href="/earnings#unpaid">{{ tr.unpaid }} {{ row.unpaid|money(row.currency) }}</a>
+                    {%- if row.unpaid %}<a class="paid-badge is-unpaid" href="/findings?tab=bounty#unpaid">{{ tr.unpaid }} {{ row.unpaid|money(row.currency) }}</a>
                     {%- else %}<span class="paid-badge is-paid">{{ tr.paid }}</span>{% endif -%}
                   </dd>
                 </div>

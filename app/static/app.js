@@ -12,21 +12,6 @@
   const plainClick = (event) =>
     event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
 
-  // Select the tab and the pane whose data value is `name`.
-  const showTab = (tabs, panes, name, tabKey, paneKey) => {
-    tabs.forEach((tab) => {
-      const selected = tab.dataset[tabKey] === name;
-      tab.classList.toggle('active', selected);
-      tab.setAttribute('aria-selected', String(selected));
-      tab.tabIndex = selected ? 0 : -1;
-    });
-    panes.forEach((pane) => {
-      const selected = pane.dataset[paneKey] === name;
-      pane.classList.toggle('active', selected);
-      pane.setAttribute('aria-hidden', String(!selected));
-    });
-  };
-
   // Highlight a drop zone while files are dragged over it; dropped files replace the input's selection.
   const bindDropZone = (zone, input, onChange, { single = false } = {}) => {
     if (!zone || !input) return;
@@ -153,68 +138,8 @@
     node.addEventListener('toggle', () => localStorage.setItem(key, node.open ? 'open' : 'closed'));
   });
 
-  // Record drawer: a plain click on a registry row opens it; modified clicks still navigate.
-  const drawer = document.querySelector('#record-drawer');
-  const drawerBody = document.querySelector('[data-drawer-body]');
-  const drawerLoading = document.querySelector('[data-drawer-loading]');
-  let panelReturnFocus = null;
-
-  const closeRecordPanel = () => {
-    if (!drawer || drawer.hidden) return;
-    drawer.hidden = true;
-    document.body.classList.remove('drawer-modal-open');
-    drawerBody.replaceChildren();
-    panelReturnFocus?.focus?.();
-    panelReturnFocus = null;
-  };
-  drawer?.addEventListener('click', (event) => {
-    if (event.target.closest('[data-drawer-close]')) closeRecordPanel();
-  });
-
-  const bindRecordPanel = () => {
-    const moveSelect = drawerBody.querySelector('.move-form select');
-    const moveButton = drawerBody.querySelector('.move-form button[type="submit"]');
-    const syncMove = () => {
-      if (moveButton) moveButton.disabled = !moveSelect?.value;
-    };
-    moveSelect?.addEventListener('change', syncMove);
-    syncMove();
-
-    const panes = [...drawerBody.querySelectorAll('[data-drawer-pane]')];
-    const tabs = [...drawerBody.querySelectorAll('[data-drawer-tab]')];
-    tabs.forEach((tab) =>
-      tab.addEventListener('click', () => {
-        const wanted = tab.dataset.drawerTab;
-        showTab(tabs, panes, wanted, 'drawerTab', 'drawerPane');
-
-        // The editor is the real edit page, loaded into a frame on first use.
-        const pane = panes.find((item) => item.dataset.drawerPane === wanted);
-        if (wanted === 'edit' && pane && !pane.querySelector('iframe')) {
-          const frame = document.createElement('iframe');
-          frame.className = 'drawer-frame';
-          frame.src = pane.dataset.editUrl;
-          frame.title = tab.textContent || 'editor';
-          frame.addEventListener('load', () => {
-            let path = '';
-            try {
-              path = frame.contentWindow.location.pathname;
-            } catch {
-              return; // same-origin here, but never throw out of a load handler
-            }
-            // A save redirects away from /edit: close the drawer so the list shows the new values.
-            if (path && !path.endsWith('/edit')) {
-              closeRecordPanel();
-              window.location.reload();
-            }
-          });
-          pane.append(frame);
-        }
-      }),
-    );
-  };
-
-  const initReportReaders = (scope = document) => {
-    scope.querySelectorAll('[data-report-reader]:not([data-reader-ready])').forEach((reader) => {
+  const initReportReaders = () => {
+    document.querySelectorAll('[data-report-reader]:not([data-reader-ready])').forEach((reader) => {
       reader.dataset.readerReady = 'true';
       const headings = [...reader.querySelectorAll('h1, h2, h3')].filter((heading) => heading.textContent.trim());
       if (headings.length >= 2) {
@@ -281,60 +206,15 @@
     });
   });
 
-  const openRecordPanel = (url, trigger) => {
-    if (!drawer) return;
-    panelReturnFocus = trigger || null;
-    drawer.hidden = false;
-    document.body.classList.add('drawer-modal-open');
-    drawerBody.replaceChildren();
-    if (drawerLoading) drawerLoading.hidden = false;
-    fetch(url)
-      .then((response) => {
-        if (isSignInRedirect(response)) {
-          window.location.assign('/login');
-          return Promise.reject(401);
-        }
-        return response.ok ? response.text() : Promise.reject(response.status);
-      })
-      .then((markup) => {
-        if (drawerLoading) drawerLoading.hidden = true;
-        // Server-rendered fragment from our own origin, already escaped by Jinja.
-        drawerBody.innerHTML = markup;
-        bindRecordPanel();
-        initReportReaders(drawerBody);
-        drawerBody.querySelector('[data-drawer-tab]')?.focus();
-      })
-      .catch((reason) => {
-        if (drawerLoading) drawerLoading.hidden = true;
-        if (reason === 401) return;
-        // Fall back to the full page rather than leaving an empty drawer.
-        window.location.href = url.replace('/panel', '');
-      });
-  };
-
-  // Rows open on a plain click; links and controls inside them keep their own behaviour.
-  const clickableRow = (row, open) => {
+  // Rows link to their page on a plain click; links and controls inside them keep their own behaviour.
+  document.querySelectorAll('[data-row-href]').forEach((row) => {
     row.classList.add('is-clickable');
     row.addEventListener('click', (event) => {
-      if (plainClick(event) && !event.target.closest('a,button,input,select,textarea,label')) open();
+      if (plainClick(event) && !event.target.closest('a,button,input,select,textarea,label')) {
+        window.location.href = row.dataset.rowHref;
+      }
     });
-  };
-  document.querySelectorAll('[data-record-panel]').forEach((row) => {
-    clickableRow(row, () => openRecordPanel(row.dataset.recordPanel, row));
-    row.querySelectorAll('a.strong-link').forEach((link) =>
-      link.addEventListener('click', (event) => {
-        if (!plainClick(event)) return;
-        event.preventDefault();
-        openRecordPanel(row.dataset.recordPanel, link);
-      }),
-    );
   });
-  // Program rows are not vulnerabilities, so they navigate rather than preview.
-  document.querySelectorAll('tr[data-row-href]').forEach((row) =>
-    clickableRow(row, () => {
-      window.location.href = row.dataset.rowHref;
-    }),
-  );
 
   // Command palette. Results are built with textContent because snippets can hold live payloads.
   const palette = document.querySelector('#palette');
@@ -498,11 +378,6 @@
     if (event.key === 'Escape' && palette && !palette.hidden) {
       event.preventDefault();
       closePalette();
-      return;
-    }
-    if (event.key === 'Escape' && drawer && !drawer.hidden) {
-      event.preventDefault();
-      closeRecordPanel();
     }
   });
 
@@ -524,7 +399,7 @@
     if (dialog.returnValue === 'confirm') action?.();
   });
 
-  // Forms marked data-confirm ask first, including forms loaded into the record drawer later.
+  // Forms marked data-confirm ask first.
   const confirmed = new WeakSet();
   document.addEventListener('submit', (event) => {
     const form = event.target;
@@ -535,6 +410,17 @@
       confirmed.add(form);
       form.requestSubmit(submitter);
     });
+  });
+
+  // Dropdown menus (<details class="menu">) close on an outside click or Escape.
+  const openMenus = () => document.querySelectorAll('details.menu[open]');
+  document.addEventListener('click', (event) => {
+    openMenus().forEach((menu) => {
+      if (!menu.contains(event.target)) menu.open = false;
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') openMenus().forEach((menu) => (menu.open = false));
   });
 
   document.querySelectorAll('[data-auto-filter]').forEach((form) => {
@@ -649,14 +535,6 @@
     updateBanner.querySelector('[data-update-start]')?.addEventListener('click', () => {
       confirmAction(updateBanner.dataset.confirmUpdate, runUpdate);
     });
-  }
-
-  const recordTabs = [...document.querySelectorAll('[data-record-tab]')];
-  if (recordTabs.length) {
-    const panes = [...document.querySelectorAll('[data-record-pane]')];
-    const activate = (name) => showTab(recordTabs, panes, name, 'recordTab', 'recordPane');
-    recordTabs.forEach((tab) => tab.addEventListener('click', () => activate(tab.dataset.recordTab)));
-    if (window.location.hash === '#evidence') activate('evidence');
   }
 
   const reportTemplates = {
@@ -980,12 +858,17 @@
     }
   }
 
-  document.querySelectorAll('[data-file-input]:not([multiple])').forEach((input) =>
+  // A plain file field names its selection: the file, or how many were chosen.
+  document.querySelectorAll('[data-file-summary]').forEach((input) => {
+    const label = input.closest('label')?.querySelector('span');
+    const idle = label?.textContent;
     input.addEventListener('change', () => {
-      const label = input.closest('label')?.querySelector('span');
-      if (label && input.files[0]) label.textContent = input.files[0].name;
-    }),
-  );
+      if (!label) return;
+      const { files } = input;
+      if (files.length === 1) label.textContent = files[0].name;
+      else label.textContent = files.length ? `${files.length} ${input.dataset.filesLabel}` : idle;
+    });
+  });
 
   const importForm = document.querySelector('[data-import-form]');
   if (importForm) {
@@ -1025,8 +908,7 @@
   // WebMCP: register the agent tools for an in-browser agent acting as the signed-in user.
   // The catalogue comes from the server, so browser and MCP clients always match.
   const modelContext = document.modelContext || navigator.modelContext;
-  // Register once per tab, not again inside the drawer's editor frame.
-  if (modelContext?.registerTool && csrfToken && window.top === window) {
+  if (modelContext?.registerTool && csrfToken) {
     // The current spec returns the tool's JSON value; the older navigator.modelContext
     // preview expects MCP content blocks.
     const legacy = !document.modelContext;

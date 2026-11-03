@@ -37,45 +37,37 @@
                 <path d="M2 6.5 8 2l6 4.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />
               </svg>{{ tr.dashboard }}
             </a>
-          </nav>
-          <div class="nav-group">
-            <p class="nav-label">{{ tr.nav_observe }}</p>
-            <a class="nav-item {{ 'active' if active == 'search' }}" href="/search">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5 14 14" />
-              </svg>{{ tr.lookup }}
-            </a>
             <a class="nav-item {{ 'active' if active == 'findings' }}" href="/findings">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M8 2.5 13.5 5v4c0 3-2.4 4.6-5.5 5.5C4.9 13.6 2.5 12 2.5 9V5z" />
                 <path d="M6 8l1.6 1.6L10.5 6.8" />
               </svg>{{ tr.findings }}
             </a>
-            <a class="nav-item {{ 'active' if active == 'earnings' }}" href="/earnings">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-                <path d="M2.5 13.5h11" />
-                <path d="M4 11V8.5M7 11V5.5M10 11V7M13 11V3.5" />
-              </svg>{{ tr.earnings }}
-            </a>
-            <a class="nav-item {{ 'active' if active == 'knowledge' }}" href="/knowledge">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M3 3.5h4.2a1.8 1.8 0 0 1 1.8 1.8V14a1.5 1.5 0 0 0-1.5-1.5H3z" />
-                <path d="M13 3.5H8.8A1.8 1.8 0 0 0 7 5.3V14a1.5 1.5 0 0 1 1.5-1.5H13z" />
-              </svg>{{ tr.knowledge }}
-            </a>
-          </div>
-          <div class="nav-group">
-            <p class="nav-label">{{ tr.nav_build }}</p>
             <a class="nav-item {{ 'active' if active == 'programs' }}" href="/programs">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.2l1.3 1.7h5.5A1.5 1.5 0 0 1 14 6.2v5.3A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" />
               </svg>{{ tr.programs }}
             </a>
-            <a class="nav-item {{ 'active' if active == 'capture' }}" href="/capture">
+            <a class="nav-item {{ 'active' if active == 'search' }}" href="/search">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M9 1.8 4 9h3.2l-.8 5.2L12 7H8.6z" />
-              </svg>{{ tr.quick_capture }}
+                <circle cx="7" cy="7" r="4.5" />
+                <path d="M10.5 10.5 14 14" />
+              </svg>{{ tr.lookup }}
+            </a>
+          </nav>
+          <div class="nav-group">
+            <p class="nav-label">{{ tr.nav_data }}</p>
+            <a class="nav-item {{ 'active' if active == 'tags' }}" href="/tags">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+                <path d="M2.5 8.2V3.5a1 1 0 0 1 1-1h4.7l5.3 5.3a1 1 0 0 1 0 1.4l-4.3 4.3a1 1 0 0 1-1.4 0z" />
+                <circle cx="5.7" cy="5.7" r="0.9" />
+              </svg>{{ tr.tags }}
+            </a>
+            <a class="nav-item {{ 'active' if active == 'export' }}" href="/export">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 2.5v7.5M5 7l3 3 3-3" />
+                <path d="M3 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1" />
+              </svg>{{ tr.ai_export }}
             </a>
           </div>
         </div>
@@ -119,9 +111,7 @@
                 </summary>
                 <div class="explorer-findings">
                   {% for finding in program.findings|sort(attribute="updated_at", reverse=true) %}
-                    {% set is_selected = explorer_current_finding == finding.id
-                       or (not explorer_current_finding and is_current and explorer_current_knowledge == finding.knowledge_id) %}
-                    <a class="explorer-finding {{ 'selected' if is_selected }}"
+                    <a class="explorer-finding"
                        href="{{ finding.url }}"
                        data-finding-name="{{ finding.knowledge.title|lower }}">
                       <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
@@ -131,7 +121,7 @@
                     <p class="explorer-empty">{{ tr.empty }}</p>
                   {% endfor %}
                   {% if not program.archived %}
-                    <a class="explorer-add" href="/knowledge/new?program_id={{ program.id }}">
+                    <a class="explorer-add" href="/findings/new?program_id={{ program.id }}">
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                         <path d="M8 3.5v9M3.5 8h9" />
                       </svg>{{ tr.new_vulnerability }}
@@ -168,7 +158,7 @@
           {% endif %}
           {% if top_actions %}
             <div class="top-actions">
-              <a class="button primary" href="/knowledge/new">{{ tr.new_vulnerability }}</a>
+              <a class="button primary" href="/findings/new{{ '?program_id=' ~ explorer_current_program if explorer_current_program }}">{{ tr.new_vulnerability }}</a>
             </div>
           {% endif %}
         </header>
@@ -179,13 +169,6 @@
     </div>
 
     <div class="mobile-overlay"></div>
-    <div class="drawer" id="record-drawer" hidden>
-      <div class="drawer-backdrop" data-drawer-close></div>
-      <aside class="drawer-panel" role="dialog" aria-modal="true" aria-label="{{ tr.findings }}">
-        <div class="drawer-body" data-drawer-body></div>
-        <div class="drawer-loading" data-drawer-loading>…</div>
-      </aside>
-    </div>
     <div class="palette" id="palette" hidden>
       <div class="palette-backdrop" data-palette-close></div>
       <div class="palette-panel" role="dialog" aria-modal="true" aria-label="{{ tr.lookup }}">

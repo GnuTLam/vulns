@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from markupsafe import Markup, escape
-from sqlalchemy import and_, case, func, or_
+from sqlalchemy import and_, case, func, or_, true
 from sqlalchemy.orm import Session, selectinload
 
 from .database import (
@@ -34,6 +34,7 @@ from .database import (
 )
 from .models import Finding, KnowledgeEntry, Program, Tag
 from .taxonomy import CLOSED_STATUSES, SEVERITIES, normalize_tag
+from .web import report_url
 
 KINDS = ("knowledge", "finding", "program")
 
@@ -251,16 +252,21 @@ def _apply_filter(parsed: ParsedQuery, canonical: str, value: str, negated: bool
         return
 
     if canonical == "kind":
-        singular = value.casefold().rstrip("s")
+        folded = value.casefold()
+        # "reports" are the reports no program has; everything filed is a vulnerability.
         mapping = {
             "knowledge": "knowledge",
             "research": "knowledge",
-            "vuln": "knowledge",
+            "report": "knowledge",
+            "unfiled": "knowledge",
             "finding": "finding",
-            "report": "finding",
+            "vuln": "finding",
+            "vulnerability": "finding",
+            "vulnerabilitie": "finding",
+            "submission": "finding",
             "program": "program",
         }
-        resolved = mapping.get(singular)
+        resolved = mapping.get(folded) or mapping.get(folded.rstrip("s"))
         if resolved:
             kinds.append(resolved)
         else:
@@ -485,6 +491,8 @@ FINDING_FILTERS = KindFilters(
         "program_id": lambda value: Finding.program_id == value,
         "bug_type": lambda value: Finding.knowledge.has(KnowledgeEntry.bug_type.ilike(_like(value))),
         "cwe": lambda value: Finding.knowledge.has(KnowledgeEntry.cwe.ilike(_like(value))),
+        "technology": lambda value: Finding.knowledge.has(KnowledgeEntry.technology.ilike(_like(value))),
+        "endpoint": lambda value: Finding.knowledge.has(KnowledgeEntry.endpoint.ilike(_like(value))),
         "tag": lambda value: Finding.knowledge.has(KnowledgeEntry.tags.any(Tag.name == normalize_tag(value))),
         "currency": lambda value: Finding.currency == value.upper(),
         "after": lambda value: Finding.updated_at >= _as_datetime(value),
@@ -492,6 +500,11 @@ FINDING_FILTERS = KindFilters(
     },
     flags={
         "is": {
+            "draft": lambda: Finding.knowledge.has(KnowledgeEntry.is_draft.is_(True)),
+            "ai": lambda: Finding.knowledge.has(
+                and_(KnowledgeEntry.use_for_ai.is_(True), KnowledgeEntry.is_draft.is_(False))
+            ),
+            "linked": true,
             "open": lambda: Finding.status.notin_(CLOSED_STATUSES),
             "submitted": lambda: Finding.status == "submitted",
             "processing": lambda: Finding.status == "processing",
@@ -508,8 +521,17 @@ FINDING_FILTERS = KindFilters(
             "payout": lambda: Finding.payout.isnot(None),
             "bonus": lambda: Finding.bonus.isnot(None),
             "reward": _rewarded,
-            "notes": lambda: Finding.private_notes != "",
+            "notes": lambda: or_(
+                Finding.private_notes != "", Finding.knowledge.has(KnowledgeEntry.research_notes != "")
+            ),
             "evidence": lambda: Finding.knowledge.has(KnowledgeEntry.evidence.any()),
+            "tags": lambda: Finding.knowledge.has(KnowledgeEntry.tags.any()),
+            "cvss": lambda: Finding.knowledge.has(KnowledgeEntry.cvss_score.isnot(None)),
+            "cwe": lambda: Finding.knowledge.has(KnowledgeEntry.cwe != ""),
+            "poc": lambda: Finding.knowledge.has(KnowledgeEntry.markdown.contains("```")),
+            "remediation": lambda: Finding.knowledge.has(KnowledgeEntry.remediation != ""),
+            "reference": lambda: Finding.knowledge.has(KnowledgeEntry.references != ""),
+            "program": true,
         },
     },
     comparisons={
@@ -554,9 +576,13 @@ def _filtered(query, parsed: ParsedQuery, filters: KindFilters):
 
 
 def knowledge_rows(
-    session: Session, parsed: ParsedQuery, limit: int = 500
+    session: Session, parsed: ParsedQuery, limit: int = 500, *, unfiled_only: bool = True
 ) -> tuple[list[KnowledgeEntry], int, dict[str, tuple[float, str]]]:
-    """Ranked KnowledgeEntry objects for a parsed query, used by the registry pages."""
+    """Ranked KnowledgeEntry objects for a parsed query.
+
+    Only reports no program has are returned unless ``unfiled_only`` is off: a filed report is
+    found as its vulnerability by ``finding_rows``, so the two never list the same record twice.
+    """
     expression = parsed.fts_expression()
     ranked: dict[str, tuple[float, str]] = {}
     if expression:
@@ -570,6 +596,8 @@ def knowledge_rows(
         selectinload(KnowledgeEntry.evidence),
         selectinload(KnowledgeEntry.tags),
     )
+    if unfiled_only:
+        query = query.filter(~KnowledgeEntry.findings.any())
     if ranked:
         query = query.filter(KnowledgeEntry.id.in_(list(ranked)))
     rows = _filtered(query, parsed, KNOWLEDGE_FILTERS).limit(1200).all()
@@ -595,8 +623,8 @@ def _display_snippet(raw_snippet: str, title: str, fallback: str) -> Markup:
     return highlight(raw_snippet)
 
 
-def _search_knowledge(session: Session, parsed: ParsedQuery, limit: int) -> tuple[list[dict], int]:
-    rows, total, ranked = knowledge_rows(session, parsed, limit=limit)
+def _search_knowledge(session: Session, parsed: ParsedQuery, limit: int, unfiled_only: bool) -> tuple[list[dict], int]:
+    rows, total, ranked = knowledge_rows(session, parsed, limit=limit, unfiled_only=unfiled_only)
     results = []
     for entry in rows:
         rank, snippet = ranked.get(entry.id, (0.0, ""))
@@ -605,7 +633,7 @@ def _search_knowledge(session: Session, parsed: ParsedQuery, limit: int) -> tupl
                 "kind": "knowledge",
                 "id": entry.id,
                 "title": entry.title,
-                "url": f"/knowledge/{entry.id}",
+                "url": report_url(entry),
                 "severity": entry.default_severity,
                 "bug_type": entry.bug_type,
                 "cwe": entry.cwe,
@@ -660,12 +688,19 @@ def finding_rows(
             entity_id: (rank, snippet)
             for entity_id, rank, snippet in fts_entity_matches(session, "finding", expression, limit=600)
         }
-        knowledge_ids = [entry_id for entry_id, _rank, _snip in fts_knowledge_matches(session, expression, limit=600)]
+        report_matches = {
+            entry_id: (rank, snippet)
+            for entry_id, rank, snippet in fts_knowledge_matches(session, expression, limit=600)
+        }
         via_knowledge: set[str] = set()
-        if knowledge_ids:
-            via_knowledge = {
-                row[0] for row in session.query(Finding.id).filter(Finding.knowledge_id.in_(knowledge_ids)).all()
-            }
+        if report_matches:
+            for finding_id, knowledge_id in session.query(Finding.id, Finding.knowledge_id).filter(
+                Finding.knowledge_id.in_(list(report_matches))
+            ):
+                via_knowledge.add(finding_id)
+                # The text of the report ranks the vulnerability and supplies its snippet.
+                if finding_id not in ranked or report_matches[knowledge_id][0] < ranked[finding_id][0]:
+                    ranked[finding_id] = report_matches[knowledge_id]
         allowed_ids = set(ranked) | via_knowledge
         if not allowed_ids:
             return [], 0, {}
@@ -784,14 +819,18 @@ def kind_can_answer(parsed: ParsedQuery, kind: str) -> bool:
     return all(name in filters.comparisons for name in parsed.comparisons)
 
 
-def run_search(session: Session, parsed: ParsedQuery, *, limit: int = 40) -> dict:
-    """Run a parsed query for every requested kind. Totals are counted before the display limit."""
+def run_search(session: Session, parsed: ParsedQuery, *, limit: int = 40, unfiled_only: bool = True) -> dict:
+    """Run a parsed query for every requested kind. Totals are counted before the display limit.
+
+    The pages list a filed report only as its vulnerability; the agent API, which addresses
+    reports by id, passes ``unfiled_only=False`` to search every report as well.
+    """
     empty: tuple[list[dict], int] = ([], 0)
 
     def wanted(kind: str) -> bool:
         return kind in parsed.kinds and kind_can_answer(parsed, kind)
 
-    knowledge = _search_knowledge(session, parsed, limit) if wanted("knowledge") else empty
+    knowledge = _search_knowledge(session, parsed, limit, unfiled_only) if wanted("knowledge") else empty
     findings = _search_findings(session, parsed, limit) if wanted("finding") else empty
     programs = _search_programs(session, parsed, limit) if wanted("program") else empty
     return {

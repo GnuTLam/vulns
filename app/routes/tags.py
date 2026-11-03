@@ -54,12 +54,12 @@ def _refresh(request: Request, db: Session, entries: list[KnowledgeEntry]) -> No
     refresh_markdown(request, db, *entries)
 
 
-@router.get("/knowledge/tags", response_class=HTMLResponse)
+@router.get("/tags", response_class=HTMLResponse)
 def tags_page(request: Request, db: Session = Depends(get_db)):
-    return render(request, "tags.html", "knowledge", tags=tag_counts(db), tag_max_length=TAG_MAX_LENGTH)
+    return render(request, "tags.html", "tags", tags=tag_counts(db), tag_max_length=TAG_MAX_LENGTH)
 
 
-@router.post("/knowledge/tags/{tag_id}/rename")
+@router.post("/tags/{tag_id}/rename")
 def tag_rename(
     request: Request,
     tag_id: int,
@@ -85,10 +85,10 @@ def tag_rename(
         else:
             tag.name = new_name
         _refresh(request, db, affected)
-    return RedirectResponse("/knowledge/tags", status_code=303)
+    return RedirectResponse("/tags", status_code=303)
 
 
-@router.post("/knowledge/tags/{tag_id}/delete")
+@router.post("/tags/{tag_id}/delete")
 def tag_delete(request: Request, tag_id: int, csrf: str = Form(...), db: Session = Depends(get_db)):
     validate_csrf(request, csrf)
     tag = _get_tag(db, tag_id)
@@ -97,4 +97,4 @@ def tag_delete(request: Request, tag_id: int, csrf: str = Form(...), db: Session
         entry.tags.remove(tag)
     db.delete(tag)
     _refresh(request, db, affected)
-    return RedirectResponse("/knowledge/tags", status_code=303)
+    return RedirectResponse("/tags", status_code=303)

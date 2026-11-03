@@ -1,17 +1,19 @@
 # VulnS
 
-A self-hosted workspace for bug bounty hunters. VulnS keeps reusable vulnerability research separate from program-specific submissions, so one write-up can be linked to many programs and every submission is tracked from discovery to payout.
+A self-hosted workspace for bug bounty hunters. VulnS keeps each vulnerability in one place: the Markdown report and its submission to a program, tracked from discovery to payout.
 
 ## Features
 
-- **Vulnerability database.** Each vulnerability is written once as Markdown (GitHub-style tables, task lists, strikethrough) with taxonomy (bug type, severity, CWE, CVSS, endpoint, technology) and free tags, then linked to any number of programs.
-- **Tags.** Normalised labels such as `jwt` or `account-takeover`, with suggestions while typing and a page to rename, merge or delete them.
-- **Submission tracking.** Per-program status (*Submitted*, *Processing*, *Done*) and outcome (accepted, duplicate, informative, rejected, out of scope), report IDs, discovery, triage and reward dates, payouts and bonuses in VND, EUR or USD, whether the money has been received, and program re-ratings.
+- **One vulnerability, one page.** A vulnerability is a Markdown report (GitHub-style tables, task lists, strikethrough; bug type, severity, CWE, CVSS, endpoint, technology and free tags) together with its submission to one program. One form, *New vulnerability*, is reachable from every page and saves both; the vulnerability then lives at `/findings/{id}`.
+- **Vulnerabilities list.** Filter by search, program, status or severity; each row shows severity, status, outcome and bounty, and opens the vulnerability.
+- **Submission tracking.** Status (*Submitted*, *Processing*, *Done*) and outcome (accepted, duplicate, informative, rejected, out of scope), report IDs, discovery, triage and reward dates, payouts and bonuses in VND, EUR or USD, whether the money has been received, and program re-ratings. The vulnerability page changes status or records a reward in one step and dates the change itself.
+- **Unfiled reports.** Reports without a program (imported drafts, old quick captures, the reports of deleted programs) are listed at `/findings/unfiled`, linked from the vulnerabilities page, each with a *File to program* action.
+- **Tags.** Normalised labels such as `jwt` or `account-takeover`, with suggestions while typing and a page (*Data → Tags*) to rename, merge or delete them; a tag opens the vulnerabilities that carry it.
 - **Dashboard.** What is waiting on a program, accepted reports still unpaid, drafts to finish, earnings and response-time medians.
-- **Earnings.** Paid and still-owed bounties per currency, by month or year, program and severity, with a one-click *Mark paid*. Currencies are never added together.
-- **Search.** One ranked, diacritic-insensitive query language across research, findings and programs, with a `Ctrl K` palette.
-- **Evidence.** Screenshots, videos, HTTP traces and other files attached to research. Inserted into a report, images and videos play inline and other files become download links.
-- **Portable data.** Every entry is also written as UTF-8 Markdown with YAML frontmatter; `.md` files can be imported back.
+- **Bounty tab.** On the vulnerabilities page: paid and still-owed rewards per currency, by month or year, program and severity, with a ledger of every reward and a one-click *Mark paid*. Currencies are never added together.
+- **Search.** One ranked, diacritic-insensitive query language across vulnerabilities, unfiled reports and programs, with a `Ctrl K` palette.
+- **Evidence.** Screenshots, videos, HTTP traces and other files attached to a report. Inserted into a report, images and videos play inline and other files become download links.
+- **Portable data.** Every report is also written as UTF-8 Markdown with YAML frontmatter; `.md` files can be imported into a program.
 - **Export for AI.** Every vulnerability marked *Use for AI* as one JSON file or a ZIP of Markdown files, with tokens, cookies, emails, real hosts and program names replaced.
 - **Agent API.** Seven tools exposed over WebMCP in the browser and over MCP for external clients.
 - **One-click updates.** When a new release is published, the dashboard offers an *Update now* button that backs up the database, swaps the container and verifies the result — rolling back automatically if anything fails. See [docs/UPDATES.md](docs/UPDATES.md).
@@ -62,7 +64,7 @@ pip install -r requirements-dev.txt
 VULNS_ADMIN_PASSWORD=dev-password uvicorn app.main:create_app --factory --reload
 ```
 
-Run the tests with `pytest` and the linter with `ruff check .`.
+Run the linter with `ruff check .`.
 
 ## Search syntax
 
@@ -87,14 +89,14 @@ Filters combine, and any filter can be negated with `-` (for example `-status:dr
 
 ## Export for AI
 
-**Knowledge → Export for AI** downloads the vulnerability database for an AI pipeline:
+**Data → AI export** (`/export`) lists what is included, excluded and still a draft, and downloads the vulnerability database for an AI pipeline:
 
-- `/knowledge/export.json`: one JSON document with every exported vulnerability (taxonomy, tags, summary, report, remediation, references, related entries).
-- `/knowledge/export.zip`: the same entries as Markdown files with YAML frontmatter.
+- `/knowledge/export.json`: one JSON document with every exported vulnerability (taxonomy, tags, summary, report, remediation, references, related reports).
+- `/knowledge/export.zip`: the same reports as Markdown files with YAML frontmatter.
 
-An entry is exported when *Use for AI* is on and it is not a draft; turn the switch off for confidential or undisclosed reports. Research notes, programs, bounty data and evidence files are never exported.
+A report is exported when *Use for AI* is on and it is not a draft; turn the switch off for confidential or undisclosed reports. Research notes, programs, bounty data and evidence files are never exported.
 
-Before export, VulnS replaces tokens, cookies, keys, emails, public IP addresses, program names (`[program]`) and hosts found in URLs, `Host` headers or finding targets (`target-1.example`). Internal addresses, payloads and links to public advisories are kept. A bare domain name in prose is replaced only when it matches a finding target, so check the preview linked from each entry page before sharing an export.
+Before export, VulnS replaces tokens, cookies, keys, emails, public IP addresses, program names (`[program]`) and hosts found in URLs, `Host` headers or finding targets (`target-1.example`). Internal addresses, payloads and links to public advisories are kept. A bare domain name in prose is replaced only when it matches a finding target, so check *Preview AI export* in the *More* menu of a vulnerability before sharing an export.
 
 ## Agent API
 
@@ -116,7 +118,7 @@ Everything lives in the `vulns_data` volume (`/data` in the container):
 | Path | Content |
 | --- | --- |
 | `vulns.db` | SQLite database |
-| `markdown/` | one Markdown file per knowledge entry |
+| `markdown/` | one Markdown file per report |
 | `evidence/` | uploaded files |
 | `backups/` | pre-update database snapshots and the update log |
 | `.session-secret` | generated session secret, when none is configured |
@@ -134,8 +136,9 @@ app/
   main.py            application factory
   routes/            page and form routes, one module per area
   web.py             rendering, sessions and record loading shared by the routes
+  vulns.py           create, update, delete, duplicate and file vulnerabilities, shared with the agent
   forms.py           form parsing and validation
-  stats.py           dashboard figures
+  stats.py           dashboard and Bounty tab figures
   agent.py           agent tools, WebMCP and MCP endpoints
   search.py          query language and ranked search
   database.py        schema migration, FTS5 index and relation signals
@@ -147,6 +150,5 @@ app/
   templates/         Jinja templates
   static/            CSS, JavaScript and icons
 updater/             the sidecar that applies one-click updates
-tests/               pytest suite
 docs/                architecture, agent API, updates and UI guidelines
 ```

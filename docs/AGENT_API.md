@@ -7,7 +7,9 @@ VulnS exposes one tool catalogue to AI agents over two transports:
 | WebMCP | an agent running in the browser tab | registered by `app.js` on `document.modelContext` | signed-in session plus `X-CSRF-Token` |
 | MCP over HTTP | Claude Code, Claude Desktop, scripts | `POST /mcp` (JSON-RPC 2.0) | `Authorization: Bearer $VULNS_AGENT_TOKEN` |
 
-Write tools call the same route handlers as the web forms, so validation, tag normalisation, Markdown files and search indexing behave exactly as they do for a manual edit.
+Write tools call the same service functions (`app/vulns.py`) as the web forms, so validation, tag normalisation, Markdown files and search indexing behave exactly as they do for a manual edit.
+
+The tools keep the three stored record kinds: a `knowledge` record is a report, a `finding` is its submission to one program, and in the app the two together are one vulnerability. A report written with `save_knowledge` is unfiled until `save_finding` submits it to a program.
 
 ## Tools
 
@@ -25,10 +27,10 @@ Behaviour common to all tools:
 
 - Updates are partial: only the fields sent are changed. `tags` and `related_ids` replace the whole list when sent.
 - Unknown fields and invalid values are rejected with a message that names the problem.
-- Every returned record includes its `id` and a `link` to the page in VulnS.
+- Every returned record includes its `id` and a `link` to the page in VulnS: a finding links to `/findings/{id}`, a report to the page of its first finding or to `/findings/unfiled` while it has none.
 - Evidence files are listed and can be deleted, but uploading one is a browser action.
 
-The catalogue is deliberately small. Prefer adding a parameter to an existing tool over adding a new one; `tests/test_agent_api.py` pins the tool list.
+The catalogue is deliberately small. Prefer adding a parameter to an existing tool over adding a new one.
 
 ## Connecting an MCP client
 

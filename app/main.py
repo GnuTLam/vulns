@@ -7,7 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import agent
 from .config import Settings
 from .database import create_database, init_database
-from .routes import ai_export, auth, dashboard, earnings, evidence, findings, knowledge, programs, search, system, tags
+from .routes import ai_export, auth, dashboard, editor, evidence, findings, programs, search, system, tags
 from .update_check import RELEASE_MANIFEST_URL, UpdateChecker
 from .web import STATIC_DIR, render
 
@@ -17,8 +17,8 @@ CONTENT_SECURITY_POLICY = (
     "object-src 'none'; base-uri 'self'; form-action 'self'"
 )
 
-# Starlette matches routes in order: routers with fixed /knowledge/... paths (export, tags)
-# come before knowledge, whose /knowledge/{knowledge_id} would otherwise capture them.
+# Starlette matches routes in order: within the findings router the fixed /findings/new, /import
+# and /unfiled paths are declared before /findings/{finding_id}, which would otherwise capture them.
 ROUTERS = (
     auth.router,
     dashboard.router,
@@ -26,10 +26,9 @@ ROUTERS = (
     programs.router,
     ai_export.router,
     tags.router,
-    knowledge.router,
+    editor.router,
     evidence.router,
     findings.router,
-    earnings.router,
     agent.router,
     system.router,
 )

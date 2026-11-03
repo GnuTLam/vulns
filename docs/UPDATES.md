@@ -52,7 +52,7 @@ Artifacts under `/data/backups/`:
 
 ## Release checklist
 
-1. Merge to `main`; CI (`.github/workflows/ci.yml`) runs ruff and pytest.
+1. Merge to `main`; CI (`.github/workflows/ci.yml`) runs ruff.
 2. Tag `vX.Y.Z` and push. The release workflow tests again, builds the app and updater
    images for amd64 and arm64, pushes them to ghcr.io and publishes a GitHub Release
    with `release.json` attached. Bump `min_updatable_from` / `min_schema` in the

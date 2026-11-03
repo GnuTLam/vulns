@@ -8,7 +8,16 @@ from fastapi import Form, HTTPException
 from sqlalchemy.orm import Session
 
 from .models import Finding, Program
-from .taxonomy import BUG_TYPES, CURRENCIES, DEFAULT_CURRENCY, LEGACY_CURRENCIES, SEVERITIES
+from .security import validate_external_url
+from .taxonomy import (
+    BUG_TYPES,
+    CURRENCIES,
+    DEFAULT_CURRENCY,
+    LEGACY_CURRENCIES,
+    OUTCOMES,
+    SEVERITIES,
+    STATUSES,
+)
 
 
 def lf(value: str) -> str:
@@ -74,6 +83,168 @@ def entry_text(
         "remediation": lf(remediation.strip()),
         "references": lf(references.strip()),
     }
+
+
+@dataclass(frozen=True)
+class ReportRecord:
+    """Report fields of a vulnerability, validated once for the web forms and the agent API."""
+
+    title: str
+    bug_type: str
+    severity: str
+    text: dict
+    # ``None`` keeps the stored tags / AI flag, so a partial save cannot wipe them.
+    tags: str | list[str] | None
+    use_for_ai: bool | None
+    related_ids: list[str]
+
+
+def build_report(
+    *,
+    title: str,
+    bug_type: str,
+    severity: str,
+    summary: str,
+    endpoint: str,
+    technology: str,
+    cwe: str,
+    cvss_score: str,
+    research_notes: str,
+    markdown: str,
+    remediation: str,
+    references: str,
+    tags: str | list[str] | None,
+    use_for_ai: bool | None,
+    related_ids: list[str],
+) -> ReportRecord:
+    return ReportRecord(
+        title=entry_title(title, bug_type, severity),
+        bug_type=bug_type,
+        severity=severity,
+        text=entry_text(
+            summary=summary,
+            endpoint=endpoint,
+            technology=technology,
+            cwe=cwe,
+            cvss_score=cvss_score,
+            research_notes=research_notes,
+            markdown=markdown,
+            remediation=remediation,
+            references=references,
+        ),
+        tags=tags,
+        use_for_ai=use_for_ai,
+        related_ids=related_ids,
+    )
+
+
+def report_fields(
+    title: str = Form(...),
+    bug_type: str = Form(...),
+    severity: str = Form(...),
+    summary: str = Form(""),
+    endpoint: str = Form(""),
+    technology: str = Form(""),
+    cwe: str = Form(""),
+    cvss_score: str = Form(""),
+    research_notes: str = Form(""),
+    markdown: str = Form(""),
+    remediation: str = Form(""),
+    references: str = Form(""),
+    tags: str | None = Form(None),
+    use_for_ai: list[str] | None = Form(None),
+    related_ids: list[str] = Form([]),
+) -> ReportRecord:
+    """Report fields as named on the vulnerability form."""
+    return build_report(
+        title=title,
+        bug_type=bug_type,
+        severity=severity,
+        summary=summary,
+        endpoint=endpoint,
+        technology=technology,
+        cwe=cwe,
+        cvss_score=cvss_score,
+        research_notes=research_notes,
+        markdown=markdown,
+        remediation=remediation,
+        references=references,
+        tags=tags,
+        use_for_ai=checkbox(use_for_ai),
+        related_ids=related_ids,
+    )
+
+
+@dataclass(frozen=True)
+class SubmissionRecord:
+    """Submission fields of a finding; the bounty travels separately as a ``BountyRecord``."""
+
+    target: str
+    scope: str
+    status: str
+    severity: str
+    outcome: str
+    report_id: str
+    report_url: str
+    discovered_at: str
+    submitted_at: str
+    private_notes: str
+
+
+def build_submission(
+    *,
+    target: str = "",
+    scope: str = "",
+    status: str = "submitted",
+    severity: str = "medium",
+    outcome: str = "",
+    report_id: str = "",
+    report_url: str = "",
+    discovered_at: str = "",
+    submitted_at: str = "",
+    private_notes: str = "",
+) -> SubmissionRecord:
+    if status not in STATUSES or severity not in SEVERITIES or outcome not in OUTCOMES:
+        raise HTTPException(status_code=422)
+    return SubmissionRecord(
+        target=target.strip(),
+        scope=scope.strip(),
+        status=status,
+        severity=severity,
+        outcome=outcome,
+        report_id=report_id.strip(),
+        report_url=validate_external_url(report_url, "Report URL"),
+        discovered_at=discovered_at,
+        submitted_at=submitted_at,
+        private_notes=lf(private_notes),
+    )
+
+
+def submission_fields(
+    target: str = Form(""),
+    scope: str = Form(""),
+    status: str = Form("submitted"),
+    severity: str = Form(...),
+    outcome: str = Form(""),
+    report_id: str = Form(""),
+    report_url: str = Form(""),
+    discovered_at: str = Form(""),
+    submitted_at: str = Form(""),
+    private_notes: str = Form(""),
+) -> SubmissionRecord:
+    """Submission fields as named on the vulnerability form."""
+    return build_submission(
+        target=target,
+        scope=scope,
+        status=status,
+        severity=severity,
+        outcome=outcome,
+        report_id=report_id,
+        report_url=report_url,
+        discovered_at=discovered_at,
+        submitted_at=submitted_at,
+        private_notes=private_notes,
+    )
 
 
 def ensure_unlinked(db: Session, program_id: str, knowledge_id: str, finding_id: str = "") -> None:
@@ -215,6 +386,22 @@ def apply_bounty(finding: Finding, bounty: BountyRecord) -> None:
     finding.duplicate_of = bounty.duplicate_of
     finding.is_paid = bounty.is_paid
     finding.paid_at = bounty.paid_at
+
+
+def current_bounty(finding: Finding) -> BountyRecord:
+    """The bounty fields a finding holds now, for quick actions that change a few of them."""
+    return BountyRecord(
+        triaged_at=finding.triaged_at,
+        resolved_at=finding.resolved_at,
+        rewarded_at=finding.rewarded_at,
+        payout=finding.payout,
+        bonus=finding.bonus,
+        currency=finding.currency,
+        program_severity=finding.program_severity,
+        duplicate_of=finding.duplicate_of,
+        is_paid=finding.is_paid,
+        paid_at=finding.paid_at,
+    )
 
 
 def finding_dates(discovered_at: str, submitted_at: str, bounty: BountyRecord) -> tuple[str, str]:

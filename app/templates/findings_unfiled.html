@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.unfiled_reports }}{% endblock %}
+{% block content %}
+  <div class="toolbar">
+    <div class="crumbs"><a href="/findings">{{ tr.findings }}</a><i>/</i><strong>{{ tr.unfiled_reports }}</strong><code>{{ entries|length }}</code></div>
+    <div class="toolbar-actions">
+      <a class="button primary" href="/findings/new">{{ tr.new_vulnerability }}</a>
+    </div>
+  </div>
+  <div class="workspace">
+    <section class="panel">
+      <p class="panel-note">{{ tr.unfiled_help }}</p>
+      {% if entries %}
+        <div class="table-wrap">
+          <table class="registry-table unfiled-table">
+            <thead>
+              <tr>
+                <th>{{ tr.title }}</th>
+                <th>{{ tr.severity }}</th>
+                <th>{{ tr.updated }}</th>
+                <th>{{ tr.file_to_program }}</th>
+                <th><span class="visually-hidden">{{ tr.delete }}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in entries %}
+                <tr>
+                  <td>
+                    <strong class="row-title">{{ entry.title }}</strong>
+                    {%- if entry.is_draft %} <span class="draft-badge">{{ tr.draft_badge }}</span>{% endif %}
+                    <small>{{ entry.bug_type }}{% if entry.summary %} · {{ entry.summary|truncate(80) }}{% endif %}</small>
+                  </td>
+                  <td><span class="severity {{ entry.default_severity }}">{{ humanize(entry.default_severity) }}</span></td>
+                  <td class="mono-cell">{{ entry.updated_at.strftime("%Y-%m-%d") }}</td>
+                  <td>
+                    {% if programs %}
+                      <form class="file-form" method="post" action="/findings/unfiled/{{ entry.id }}/file">
+                        <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                        <select name="program_id" required aria-label="{{ tr.file_to_program }}">
+                          <option value="" selected disabled>{{ tr.select_program }}</option>
+                          {% for program in programs %}
+                            <option value="{{ program.id }}">{{ program.name }}</option>
+                          {% endfor %}
+                        </select>
+                        <button class="button" type="submit">{{ tr.file }}</button>
+                      </form>
+                    {% else %}
+                      <a href="/programs/new">{{ tr.no_open_programs }}</a>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="/findings/unfiled/{{ entry.id }}/delete" data-confirm="{{ tr.confirm_delete }}">
+                      <input type="hidden" name="csrf" value="{{ csrf_token }}">
+                      <button class="text-action danger" type="submit" aria-label="{{ tr.delete }} {{ entry.title }}">{{ tr.delete }}</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h2>{{ tr.no_unfiled }}</h2>
+          <div class="empty-actions">
+            <a class="button" href="/findings">{{ tr.findings }}</a>
+          </div>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

@@ -13,13 +13,13 @@ from ..web import get_db, get_knowledge, render, require_auth
 router = APIRouter(dependencies=[Depends(require_auth)])
 
 
-@router.get("/knowledge/export", response_class=HTMLResponse)
+@router.get("/export", response_class=HTMLResponse)
 def knowledge_export_page(request: Request, db: Session = Depends(get_db)):
     entries = db.query(KnowledgeEntry).order_by(KnowledgeEntry.title).all()
     return render(
         request,
         "export.html",
-        "knowledge",
+        "export",
         included=[entry for entry in entries if entry.in_ai_export],
         excluded=[entry for entry in entries if not entry.use_for_ai],
         drafts=[entry for entry in entries if entry.use_for_ai and entry.is_draft],

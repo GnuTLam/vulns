@@ -1,16 +1,16 @@
-"""Evidence files attached to knowledge entries."""
+"""Evidence files attached to reports."""
 
 import mimetypes
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..models import Evidence, KnowledgeEntry
 from ..security import safe_filename, validate_csrf
-from ..web import SAFE_INLINE_TYPES, get_db, get_knowledge, require_auth
+from ..web import SAFE_INLINE_TYPES, get_db, local_path, report_url, require_auth
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
@@ -60,21 +60,6 @@ def _get_evidence(db: Session, evidence_id: str) -> Evidence:
     return item
 
 
-@router.post("/knowledge/{knowledge_id}/evidence")
-async def evidence_upload(
-    request: Request,
-    knowledge_id: str,
-    upload: UploadFile = File(...),
-    csrf: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    validate_csrf(request, csrf)
-    knowledge = get_knowledge(db, knowledge_id)
-    await store_evidence_files(request, db, knowledge, [upload])
-    db.commit()
-    return RedirectResponse(f"/knowledge/{knowledge.id}#evidence", status_code=303)
-
-
 @router.get("/evidence/{evidence_id}")
 def evidence_view(request: Request, evidence_id: str, download: bool = False, db: Session = Depends(get_db)):
     item = _get_evidence(db, evidence_id)
@@ -90,12 +75,24 @@ def evidence_view(request: Request, evidence_id: str, download: bool = False, db
     return response
 
 
-@router.post("/evidence/{evidence_id}/delete")
-def evidence_delete(request: Request, evidence_id: str, csrf: str = Form(...), db: Session = Depends(get_db)):
-    validate_csrf(request, csrf)
-    item = _get_evidence(db, evidence_id)
-    knowledge_id = item.knowledge_id
-    (request.app.state.settings.evidence_dir / item.stored_name).unlink(missing_ok=True)
+def remove_evidence(request: Request, db: Session, item: Evidence) -> None:
+    """Delete an evidence record and its file, the file only once the record is gone."""
+    path = request.app.state.settings.evidence_dir / item.stored_name
     db.delete(item)
     db.commit()
-    return RedirectResponse(f"/knowledge/{knowledge_id}#evidence", status_code=303)
+    path.unlink(missing_ok=True)
+
+
+@router.post("/evidence/{evidence_id}/delete")
+def evidence_delete(
+    request: Request,
+    evidence_id: str,
+    return_to: str = Form(""),
+    csrf: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf(request, csrf)
+    item = _get_evidence(db, evidence_id)
+    knowledge = item.knowledge
+    remove_evidence(request, db, item)
+    return RedirectResponse(local_path(return_to, report_url(knowledge)), status_code=303)

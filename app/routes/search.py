@@ -22,9 +22,7 @@ SAVED_FILTERS = (
 def _palette_meta(item: dict) -> str:
     """Context line shown on the right of a palette row."""
     if item["kind"] == "knowledge":
-        parts = [term(item.get("severity")), item.get("bug_type") or ""]
-        if item.get("programs"):
-            parts.append(" / ".join(item["programs"][:2]))
+        parts = [term(item.get("severity")), item.get("bug_type") or "", TRANSLATIONS["reusable_orphans"]]
     elif item["kind"] == "finding":
         parts = [item.get("program") or "", term(item.get("status")), item.get("target") or ""]
     else:
@@ -34,7 +32,7 @@ def _palette_meta(item: dict) -> str:
 
 @router.get("/search", response_class=HTMLResponse)
 def search_page(request: Request, q: str = "", kind: str = "", db: Session = Depends(get_db)):
-    """Search across research, program reports and programs."""
+    """Search across vulnerabilities, reports without a program and programs."""
     selected_kind = kind if kind in KINDS else ""
     parsed = parse_query(compose_query(q, kind=selected_kind))
     results = (
@@ -76,7 +74,7 @@ def search_api(q: str = "", limit: int = 6, db: Session = Depends(get_db)):
     groups = [
         {
             "kind": kind,
-            "label": TRANSLATIONS[key],
+            "label": TRANSLATIONS[label],
             "total": results[f"{key}_total"],
             "items": [
                 {
@@ -89,7 +87,11 @@ def search_api(q: str = "", limit: int = 6, db: Session = Depends(get_db)):
                 for item in results[key]
             ],
         }
-        for kind, key in (("knowledge", "knowledge"), ("finding", "findings"), ("program", "programs"))
+        for kind, key, label in (
+            ("finding", "findings", "findings"),
+            ("knowledge", "knowledge", "reports"),
+            ("program", "programs", "programs"),
+        )
         if results[key]
     ]
     return JSONResponse({"query": q, "groups": groups, "total": results["total"], "warnings": parsed.warnings})

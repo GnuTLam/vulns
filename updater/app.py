@@ -377,9 +377,7 @@ class Handler(BaseHTTPRequestHandler):
             if not operation_lock.acquire(blocking=False):
                 self._send(409, {"error": "an update or rollback is already running"})
                 return
-            threading.Thread(
-                target=self._run_locked, args=(run_update, image, version), daemon=True
-            ).start()
+            threading.Thread(target=self._run_locked, args=(run_update, image, version), daemon=True).start()
             self._send(202, {"started": True, "to": version})
             return
 

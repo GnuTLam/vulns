@@ -1,259 +1,351 @@
-"""Findings: one knowledge entry submitted to one program."""
+"""Vulnerabilities: a finding with its report, and the pages and actions around them."""
 
-from datetime import date
+from collections import Counter
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from ..forms import BountyRecord, apply_bounty, bounty_fields, check_currency, ensure_unlinked, finding_dates, lf
+from ..forms import (
+    BountyRecord,
+    ReportRecord,
+    SubmissionRecord,
+    bounty_fields,
+    checkbox,
+    report_fields,
+    submission_fields,
+)
+from ..markdown_import import MarkdownImportError, parse_markdown_upload
+from ..markdown_store import markdown_path, report_roles
 from ..models import Finding, KnowledgeEntry, Program
 from ..search import compose_query, finding_rows, parse_query
-from ..security import validate_csrf, validate_external_url
-from ..taxonomy import OUTCOMES, SEVERITIES, STATUSES
+from ..security import validate_csrf
+from ..stats import earnings_report, unfiled_count
+from ..taxonomy import BUG_TYPES, MAX_TAGS, SEVERITIES, STATUSES, TAG_MAX_LENGTH
+from ..vulns import (
+    backlink_only_entries,
+    create_vulnerability,
+    delete_report,
+    delete_vulnerability,
+    duplicate_vulnerability,
+    file_report,
+    import_report,
+    open_program,
+    record_bounty,
+    rediscovery_for_entry,
+    related_entries,
+    set_paid,
+    set_status,
+    unfiled_entries,
+    update_vulnerability,
+)
 from ..web import (
-    explorer_values,
+    evidence_types,
     get_db,
     get_finding,
     get_knowledge,
-    get_program,
+    local_path,
     refresh_markdown,
     render,
+    render_markdown,
     require_auth,
 )
+from .evidence import store_evidence_files
+from .tags import tag_names
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
-SEVERITY_COLORS = {
-    "critical": "var(--sev-critical)",
-    "high": "var(--sev-high)",
-    "medium": "var(--sev-medium)",
-    "low": "var(--sev-low)",
-    "informational": "var(--sev-informational)",
-}
+STARTER_REPORT = "\n\n".join(
+    (
+        "# Summary",
+        "## Steps to reproduce",
+        "1. ",
+        "## Proof of concept",
+        "```http\n\n```",
+        "## Impact",
+        "## Remediation\n",
+    )
+)
 
 
-def _severity_chart(severity_counts: dict[str, int], total: int) -> str:
-    """Conic-gradient stops for the severity donut, most severe first."""
-    cursor = 0.0
-    segments: list[str] = []
-    if total:
-        for severity in reversed(SEVERITIES):
-            end = cursor + (severity_counts[severity] / total * 360)
-            if end > cursor:
-                segments.append(f"{SEVERITY_COLORS[severity]} {cursor:.2f}deg {end:.2f}deg")
-            cursor = end
-    return ", ".join(segments) or "var(--surface-3) 0deg 360deg"
+def _open_programs(db: Session) -> list[Program]:
+    return db.query(Program).filter(Program.archived.is_(False)).order_by(Program.name).all()
 
 
-def _check_values(status: str, severity: str, outcome: str = "") -> None:
-    if status not in STATUSES or severity not in SEVERITIES or outcome not in OUTCOMES:
-        raise HTTPException(status_code=422)
+def _bounty_link(program_id: str, year: int | None, currency: str):
+    """Builds links to the bounty tab that keep the filters in force, changing only what is passed."""
 
+    def link(**changes: object) -> str:
+        values = {"year": "all" if year is None else year, "currency": currency, "program_id": program_id, **changes}
+        return "/findings?" + urlencode({"tab": "bounty", **{key: value for key, value in values.items() if value}})
 
-def _open_program(db: Session, program_id: str, message: str) -> Program:
-    """The program a finding is filed under; archived programs take no new findings."""
-    program = get_program(db, program_id)
-    if program.archived:
-        raise HTTPException(status_code=422, detail=message)
-    return program
+    return link
 
 
 @router.get("/findings", response_class=HTMLResponse)
 def findings_list(
     request: Request,
+    tab: str = "",
     q: str = "",
     status: str = "",
     severity: str = "",
     program_id: str = "",
+    year: str = "",
+    currency: str = "",
     db: Session = Depends(get_db),
 ):
-    effective = compose_query(
-        q,
-        status=status if status in STATUSES else "",
-        severity=severity if severity in SEVERITIES else "",
-        program_id=program_id,
-    )
-    parsed = parse_query(effective)
-    items, result_total, _ranked = finding_rows(db, parsed, limit=500)
-    all_findings = db.query(Finding).all()
-    severity_counts = {item: sum(1 for finding in all_findings if finding.severity == item) for item in SEVERITIES}
-    finding_metrics = {
-        "total": len(all_findings),
-        "submitted": sum(1 for finding in all_findings if finding.status != "done"),
-        "accepted": sum(1 for finding in all_findings if finding.outcome == "accepted"),
-        "rewarded": sum(1 for finding in all_findings if finding.total_reward is not None),
-    }
+    """The vulnerability list, or with ``tab=bounty`` the bounty statistics and rewards ledger."""
+    programs = db.query(Program).order_by(Program.name).all()
+    common = {"programs": programs, "selected_program": program_id, "unfiled_count": unfiled_count(db)}
+    if tab == "bounty":
+        report = earnings_report(db, year.strip(), currency.strip().upper(), program_id)
+        link = _bounty_link(program_id, report["selected_year"], report["selected_currency"])
+        return render(request, "findings.html", "findings", tab="bounty", bounty_link=link, **common, **report)
+
+    parsed = parse_query(compose_query(q, severity=severity if severity in SEVERITIES else "", program_id=program_id))
+    matching, _total, _ranked = finding_rows(db, parsed, limit=1200)
+    status_counts = Counter(finding.status for finding in matching)
+    selected_status = status if status in STATUSES else ""
+    items = [finding for finding in matching if not selected_status or finding.status == selected_status]
     return render(
         request,
         "findings.html",
         "findings",
-        findings=items,
-        programs=db.query(Program).order_by(Program.name).all(),
+        tab="reports",
+        findings=items[:500],
         q=q,
-        selected_status=status,
+        selected_status=selected_status,
         selected_severity=severity,
-        selected_program=program_id,
-        result_total=result_total,
-        severity_counts=severity_counts,
-        severity_chart=_severity_chart(severity_counts, len(all_findings)),
-        finding_metrics=finding_metrics,
+        result_total=len(items),
+        status_counts=status_counts,
+        match_total=len(matching),
         query_warnings=parsed.warnings,
+        **common,
     )
+
+
+def _editor_values(db: Session, finding: Finding | None = None, program_id: str = "") -> dict:
+    """Values for the vulnerability form, which creates a vulnerability or edits an existing one."""
+    entry = finding.knowledge if finding else None
+    programs = _open_programs(db)
+    if finding and finding.program.archived:
+        # A vulnerability stays selectable in the program it was filed under after that is archived.
+        programs = sorted([*programs, finding.program], key=lambda program: program.name)
+    return {
+        "finding": finding,
+        "entry": entry,
+        "programs": programs,
+        "selected_program": finding.program_id if finding else program_id,
+        "starter": STARTER_REPORT,
+        "form_action": f"/findings/{finding.id}/edit" if finding else "/findings/new",
+        "tag_options": tag_names(db),
+        "max_tags": MAX_TAGS,
+        "tag_max_length": TAG_MAX_LENGTH,
+        "relation_entries": db.query(KnowledgeEntry)
+        .filter(KnowledgeEntry.id != (entry.id if entry else ""))
+        .order_by(KnowledgeEntry.title)
+        .all(),
+        "related_ids": entry.related_ids if entry else [],
+        "shared_findings": [other for other in entry.findings if other.id != finding.id] if entry else [],
+    }
 
 
 @router.get("/findings/new", response_class=HTMLResponse)
-def finding_new_page(
-    request: Request,
-    knowledge_id: str = "",
-    program_id: str = "",
-    db: Session = Depends(get_db),
-):
-    return render(
-        request,
-        "finding_form.html",
-        "programs" if program_id else "findings",
-        finding=None,
-        programs=db.query(Program).filter(Program.archived.is_(False)).order_by(Program.name).all(),
-        entries=db.query(KnowledgeEntry).order_by(KnowledgeEntry.title).all(),
-        selected_knowledge=knowledge_id,
-        selected_program=program_id,
-        **(explorer_values(db, current_program_id=program_id, current_knowledge_id=knowledge_id) if program_id else {}),
-    )
+def vulnerability_new_page(request: Request, program_id: str = "", db: Session = Depends(get_db)):
+    return render(request, "vulnerability_form.html", "findings", **_editor_values(db, program_id=program_id))
 
 
 @router.post("/findings/new")
-def finding_create(
+async def vulnerability_create(
     request: Request,
     program_id: str = Form(...),
-    knowledge_id: str = Form(...),
-    target: str = Form(""),
-    scope: str = Form(""),
-    status: str = Form(...),
-    severity: str = Form(...),
-    outcome: str = Form(""),
-    report_id: str = Form(""),
-    report_url: str = Form(""),
-    discovered_at: str = Form(""),
-    submitted_at: str = Form(""),
-    private_notes: str = Form(""),
+    report: ReportRecord = Depends(report_fields),
+    submission: SubmissionRecord = Depends(submission_fields),
     bounty: BountyRecord = Depends(bounty_fields),
     csrf: str = Form(...),
+    uploads: list[UploadFile] | None = File(None),
     db: Session = Depends(get_db),
 ):
     validate_csrf(request, csrf)
-    _open_program(db, program_id, "Archived programs cannot receive vulnerabilities")
-    knowledge = get_knowledge(db, knowledge_id)
-    ensure_unlinked(db, program_id, knowledge_id)
-    _check_values(status, severity, outcome)
-    check_currency(bounty)
-    discovered_at, submitted_at = finding_dates(discovered_at, submitted_at, bounty)
-    item = Finding(
-        program_id=program_id,
-        knowledge_id=knowledge_id,
-        target=target.strip(),
-        scope=scope.strip(),
-        status=status,
-        severity=severity,
-        outcome=outcome,
-        report_id=report_id.strip(),
-        report_url=validate_external_url(report_url, "Report URL"),
-        discovered_at=discovered_at,
-        submitted_at=submitted_at,
-        private_notes=lf(private_notes),
-    )
-    apply_bounty(item, bounty)
-    db.add(item)
-    db.commit()
-    db.refresh(knowledge)
-    refresh_markdown(request, db, get_knowledge(db, knowledge_id))
-    return RedirectResponse(item.url, status_code=303)
-
-
-@router.get("/findings/{finding_id}/edit", response_class=HTMLResponse)
-def finding_edit_page(request: Request, finding_id: str, db: Session = Depends(get_db)):
-    item = get_finding(db, finding_id)
-    return render(
-        request,
-        "finding_form.html",
-        "programs",
-        finding=item,
-        programs=db.query(Program).order_by(Program.name).all(),
-        entries=db.query(KnowledgeEntry).order_by(KnowledgeEntry.title).all(),
-        selected_knowledge=item.knowledge_id,
-        selected_program=item.program_id,
-        **explorer_values(db, item.program_id, item.knowledge_id, item.id),
-    )
-
-
-@router.post("/findings/{finding_id}/move")
-def finding_move(
-    request: Request,
-    finding_id: str,
-    program_id: str = Form(...),
-    csrf: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    """Move a finding to another program without copying its knowledge."""
-    validate_csrf(request, csrf)
-    finding = get_finding(db, finding_id)
-    destination = _open_program(db, program_id, "Cannot move a vulnerability to an archived program")
-    if finding.program_id != destination.id:
-        ensure_unlinked(db, destination.id, finding.knowledge_id, finding_id=finding.id)
-        finding.program_id = destination.id
-        db.commit()
-        refresh_markdown(request, db, get_knowledge(db, finding.knowledge_id))
+    finding = await create_vulnerability(request, db, program_id, report, submission, bounty, uploads)
     return RedirectResponse(finding.url, status_code=303)
 
 
-@router.post("/findings/{finding_id}/edit")
-def finding_edit(
+def _import_page(request: Request, db: Session, program_id: str = "", error: str = "", status_code: int = 200):
+    return render(
+        request,
+        "findings_import.html",
+        "findings",
+        error=error,
+        programs=_open_programs(db),
+        selected_program=program_id,
+        max_upload_bytes=request.app.state.settings.max_upload_bytes,
+        status_code=status_code,
+    )
+
+
+@router.get("/findings/import", response_class=HTMLResponse)
+def vulnerability_import_page(request: Request, program_id: str = "", db: Session = Depends(get_db)):
+    return _import_page(request, db, program_id)
+
+
+@router.post("/findings/import", response_class=HTMLResponse)
+async def vulnerability_import(
     request: Request,
-    finding_id: str,
     program_id: str = Form(...),
-    knowledge_id: str = Form(...),
-    target: str = Form(""),
-    scope: str = Form(""),
-    status: str = Form(...),
-    severity: str = Form(...),
-    outcome: str = Form(""),
-    report_id: str = Form(""),
-    report_url: str = Form(""),
-    discovered_at: str = Form(""),
-    submitted_at: str = Form(""),
-    private_notes: str = Form(""),
-    bounty: BountyRecord = Depends(bounty_fields),
+    upload: UploadFile = File(...),
     csrf: str = Form(...),
     db: Session = Depends(get_db),
 ):
     validate_csrf(request, csrf)
-    item = get_finding(db, finding_id)
-    destination = get_program(db, program_id)
-    # A finding may stay in a program archived after it was filed, but cannot move into one.
-    if destination.archived and destination.id != item.program_id:
-        raise HTTPException(status_code=422, detail="Cannot move a vulnerability to an archived program")
-    get_knowledge(db, knowledge_id)
-    ensure_unlinked(db, program_id, knowledge_id, finding_id=item.id)
-    _check_values(status, severity, outcome)
-    check_currency(bounty, item.currency)
-    discovered_at, submitted_at = finding_dates(discovered_at, submitted_at, bounty)
-    old_knowledge_id = item.knowledge_id
-    item.program_id, item.knowledge_id = program_id, knowledge_id
-    item.target, item.scope, item.status, item.severity = target.strip(), scope.strip(), status, severity
-    item.outcome = outcome
-    item.report_id, item.report_url = report_id.strip(), validate_external_url(report_url, "Report URL")
-    item.discovered_at, item.submitted_at = discovered_at, submitted_at
-    item.private_notes = lf(private_notes)
-    apply_bounty(item, bounty)
-    db.commit()
-    refresh_markdown(request, db, get_knowledge(db, old_knowledge_id))
-    if old_knowledge_id != knowledge_id:
-        refresh_markdown(request, db, get_knowledge(db, knowledge_id))
-    return RedirectResponse(item.url, status_code=303)
+    open_program(db, program_id, "Archived programs cannot receive vulnerabilities")
+    limit = request.app.state.settings.max_upload_bytes
+    payload = bytearray()
+    while chunk := await upload.read(64 * 1024):
+        payload.extend(chunk)
+        if len(payload) > limit:
+            return _import_page(request, db, program_id, "The Markdown file exceeds the configured upload limit.", 413)
+    try:
+        imported = parse_markdown_upload(
+            upload.filename or "", bytes(payload), bug_types=BUG_TYPES, severities=SEVERITIES
+        )
+    except MarkdownImportError as exc:
+        return _import_page(request, db, program_id, str(exc), exc.status_code)
+    finding = await import_report(request, db, imported, program_id)
+    return RedirectResponse(f"{finding.url}/edit", status_code=303)
+
+
+@router.get("/findings/unfiled", response_class=HTMLResponse)
+def unfiled_page(request: Request, db: Session = Depends(get_db)):
+    return render(
+        request, "findings_unfiled.html", "findings", entries=unfiled_entries(db), programs=_open_programs(db)
+    )
+
+
+def _get_unfiled(db: Session, knowledge_id: str) -> KnowledgeEntry:
+    """A report no program has; a report that is filed is reached through its vulnerability."""
+    entry = get_knowledge(db, knowledge_id)
+    if entry.findings:
+        raise HTTPException(status_code=404)
+    return entry
+
+
+@router.post("/findings/unfiled/{knowledge_id}/file")
+def unfiled_file(
+    request: Request,
+    knowledge_id: str,
+    program_id: str = Form(...),
+    csrf: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf(request, csrf)
+    finding = file_report(request, db, _get_unfiled(db, knowledge_id), program_id)
+    return RedirectResponse(f"{finding.url}/edit", status_code=303)
+
+
+@router.post("/findings/unfiled/{knowledge_id}/delete")
+def unfiled_delete(request: Request, knowledge_id: str, csrf: str = Form(...), db: Session = Depends(get_db)):
+    validate_csrf(request, csrf)
+    delete_report(request, db, _get_unfiled(db, knowledge_id))
+    return RedirectResponse("/findings/unfiled", status_code=303)
+
+
+def _neighbours(db: Session, finding: Finding) -> tuple[str, str]:
+    """Pages of the vulnerabilities before and after this one in its program, newest first."""
+    ids = [
+        row.id
+        for row in db.query(Finding.id)
+        .filter(Finding.program_id == finding.program_id)
+        .order_by(Finding.updated_at.desc(), Finding.id)
+    ]
+    position = ids.index(finding.id)
+    before = f"/findings/{ids[position - 1]}" if position else ""
+    after = f"/findings/{ids[position + 1]}" if position + 1 < len(ids) else ""
+    return before, after
+
+
+@router.get("/findings/{finding_id}", response_class=HTMLResponse)
+def vulnerability_page(request: Request, finding_id: str, db: Session = Depends(get_db)):
+    finding = get_finding(db, finding_id)
+    entry = get_knowledge(db, finding.knowledge_id)
+    previous_url, next_url = _neighbours(db, finding)
+    return render(
+        request,
+        "vulnerability.html",
+        "findings",
+        finding=finding,
+        entry=entry,
+        rendered=render_markdown(entry.markdown, evidence_types(db, entry.markdown)),
+        report_roles=report_roles(entry.markdown),
+        related_reports=[*related_entries(entry), *backlink_only_entries(db, entry)],
+        rediscover=rediscovery_for_entry(db, entry),
+        shared_findings=[other for other in entry.findings if other.id != finding.id],
+        programs=_open_programs(db),
+        previous_url=previous_url,
+        next_url=next_url,
+    )
+
+
+@router.get("/findings/{finding_id}/edit", response_class=HTMLResponse)
+def vulnerability_edit_page(request: Request, finding_id: str, db: Session = Depends(get_db)):
+    finding = get_finding(db, finding_id)
+    return render(request, "vulnerability_form.html", "findings", **_editor_values(db, finding))
+
+
+@router.post("/findings/{finding_id}/edit")
+async def vulnerability_edit(
+    request: Request,
+    finding_id: str,
+    program_id: str = Form(...),
+    report: ReportRecord = Depends(report_fields),
+    submission: SubmissionRecord = Depends(submission_fields),
+    bounty: BountyRecord = Depends(bounty_fields),
+    csrf: str = Form(...),
+    uploads: list[UploadFile] | None = File(None),
+    db: Session = Depends(get_db),
+):
+    validate_csrf(request, csrf)
+    finding = get_finding(db, finding_id)
+    await update_vulnerability(request, db, finding, program_id, report, submission, bounty, uploads)
+    return RedirectResponse(finding.url, status_code=303)
+
+
+@router.post("/findings/{finding_id}/status")
+def vulnerability_status(
+    request: Request,
+    finding_id: str,
+    status: str = Form(...),
+    outcome: str = Form(""),
+    csrf: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf(request, csrf)
+    finding = get_finding(db, finding_id)
+    set_status(request, db, finding, status, outcome)
+    return RedirectResponse(finding.url, status_code=303)
+
+
+@router.post("/findings/{finding_id}/bounty")
+def vulnerability_bounty(
+    request: Request,
+    finding_id: str,
+    payout: str = Form(""),
+    bonus: str = Form(""),
+    currency: str = Form(""),
+    is_paid: list[str] | None = Form(None),
+    return_to: str = Form(""),
+    csrf: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf(request, csrf)
+    finding = get_finding(db, finding_id)
+    record_bounty(request, db, finding, payout, bonus, currency, bool(checkbox(is_paid)))
+    return RedirectResponse(local_path(return_to, finding.url), status_code=303)
 
 
 @router.post("/findings/{finding_id}/paid")
-def finding_paid(
+def vulnerability_paid(
     request: Request,
     finding_id: str,
     paid: str = Form("1"),
@@ -263,26 +355,54 @@ def finding_paid(
 ):
     """Mark the reward of a submission as received (dated today) or as still owed."""
     validate_csrf(request, csrf)
-    item = get_finding(db, finding_id)
-    item.is_paid = paid == "1"
-    if item.is_paid:
-        item.paid_at = item.paid_at or date.today().isoformat()
-    else:
-        item.paid_at = ""
+    finding = get_finding(db, finding_id)
+    set_paid(request, db, finding, paid == "1")
+    return RedirectResponse(local_path(return_to, finding.url), status_code=303)
+
+
+@router.post("/findings/{finding_id}/evidence")
+async def vulnerability_evidence(
+    request: Request,
+    finding_id: str,
+    uploads: list[UploadFile] | None = File(None),
+    csrf: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf(request, csrf)
+    finding = get_finding(db, finding_id)
+    await store_evidence_files(request, db, finding.knowledge, uploads)
     db.commit()
-    refresh_markdown(request, db, get_knowledge(db, item.knowledge_id))
-    # Only local paths, so the form cannot be used as an open redirect.
-    local = return_to.startswith("/") and not return_to.startswith(("//", "/\\"))
-    target = return_to if local else item.url
-    return RedirectResponse(target, status_code=303)
+    return RedirectResponse(f"{finding.url}#attachments", status_code=303)
+
+
+@router.post("/findings/{finding_id}/duplicate")
+def vulnerability_duplicate(
+    request: Request,
+    finding_id: str,
+    program_id: str = Form(...),
+    csrf: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf(request, csrf)
+    duplicate = duplicate_vulnerability(request, db, get_finding(db, finding_id), program_id)
+    return RedirectResponse(f"{duplicate.url}/edit", status_code=303)
 
 
 @router.post("/findings/{finding_id}/delete")
-def finding_delete(request: Request, finding_id: str, csrf: str = Form(...), db: Session = Depends(get_db)):
+def vulnerability_delete(request: Request, finding_id: str, csrf: str = Form(...), db: Session = Depends(get_db)):
     validate_csrf(request, csrf)
-    item = get_finding(db, finding_id)
-    knowledge_id = item.knowledge_id
-    db.delete(item)
-    db.commit()
-    refresh_markdown(request, db, get_knowledge(db, knowledge_id))
-    return RedirectResponse(f"/knowledge/{knowledge_id}", status_code=303)
+    finding = get_finding(db, finding_id)
+    program_id = finding.program_id
+    delete_vulnerability(request, db, finding)
+    return RedirectResponse(f"/programs/{program_id}", status_code=303)
+
+
+@router.get("/findings/{finding_id}/markdown")
+def vulnerability_download(request: Request, finding_id: str, db: Session = Depends(get_db)):
+    entry = get_finding(db, finding_id).knowledge
+    refresh_markdown(request, db, entry)
+    return FileResponse(
+        markdown_path(request.app.state.settings.markdown_dir, entry),
+        media_type="text/markdown; charset=utf-8",
+        filename=f"{entry.slug}.md",
+    )

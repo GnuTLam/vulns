@@ -91,7 +91,7 @@ class KnowledgeEntry(Base):
     markdown: Mapped[str] = mapped_column(Text, default="")
     remediation: Mapped[str] = mapped_column(Text, default="")
     references: Mapped[str] = mapped_column(Text, default="")
-    # Set by quick capture; cleared when the entry is saved through the full form.
+    # Set for imported reports; cleared when the entry is saved through the full form.
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", index=True)
     # Off for confidential reports that must stay out of the AI export.
     use_for_ai: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1", index=True)
@@ -160,13 +160,8 @@ class Finding(Base):
 
     @property
     def url(self) -> str:
-        """The knowledge page opened in the context of this submission."""
-        return f"/knowledge/{self.knowledge_id}?program_id={self.program_id}&finding_id={self.id}"
-
-    @property
-    def panel_url(self) -> str:
-        """The record drawer fragment for this submission."""
-        return f"/knowledge/{self.knowledge_id}/panel?program_id={self.program_id}&finding_id={self.id}"
+        """The page of this vulnerability."""
+        return f"/findings/{self.id}"
 
     @property
     def total_reward(self) -> float | None:
@@ -174,11 +169,6 @@ class Finding(Base):
         if self.payout is None and self.bonus is None:
             return None
         return (self.payout or 0.0) + (self.bonus or 0.0)
-
-    @property
-    def is_unpaid(self) -> bool:
-        """A reward is recorded but the money has not been received."""
-        return self.total_reward is not None and not self.is_paid
 
     @property
     def earned_on(self) -> str:
@@ -197,10 +187,6 @@ class Finding(Base):
     def days_to_reward(self) -> int | None:
         """Calendar days from submission to the bounty being awarded."""
         return day_gap(self.submitted_at, self.rewarded_at)
-
-    @property
-    def days_to_resolve(self) -> int | None:
-        return day_gap(self.submitted_at, self.resolved_at)
 
     @property
     def days_waiting(self) -> int | None:

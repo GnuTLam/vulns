@@ -83,8 +83,7 @@ def _migrate_schema(connection) -> None:
     """
     if MIGRATIONS[-1][0] != SCHEMA_VERSION:
         raise RuntimeError(
-            f"SCHEMA_VERSION is {SCHEMA_VERSION} but the last migration is {MIGRATIONS[-1][0]}; "
-            "they must move together"
+            f"SCHEMA_VERSION is {SCHEMA_VERSION} but the last migration is {MIGRATIONS[-1][0]}; they must move together"
         )
     connection.execute(
         text("""
