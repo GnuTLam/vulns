@@ -244,7 +244,8 @@ def test_browser_line_endings_are_stored_and_exported_as_lf(ws):
     knowledge_id = entry(client, token, "CRLF report", markdown="# Summary\r\n\r\nLine one.\r\nLine two.\r\n")
     document = client.get(f"/knowledge/{knowledge_id}/ai.json").json()
     assert "\r" not in document["report"]
-    assert "\r" not in (data_dir / "markdown" / f"{knowledge_id}.md").read_text(encoding="utf-8", newline="")
+    with (data_dir / "markdown" / f"{knowledge_id}.md").open(encoding="utf-8", newline="") as handle:
+        assert "\r" not in handle.read()
 
 
 def test_ai_preview_shows_the_redacted_document(ws):
