@@ -53,7 +53,7 @@ Artifacts under `/data/backups/`:
 ## Release checklist
 
 1. Merge to `main`; CI (`.github/workflows/ci.yml`) runs ruff.
-2. Tag `vX.Y.Z` and push. The release workflow tests again, builds the app and updater
+2. Tag `vX.Y.Z` and push. The release workflow lints again, builds the app and updater
    images for amd64 and arm64, pushes them to ghcr.io and publishes a GitHub Release
    with `release.json` attached. Bump `min_updatable_from` / `min_schema` in the
    workflow when a release cannot upgrade from very old versions.
@@ -66,7 +66,7 @@ Artifacts under `/data/backups/`:
 {
   "version": "1.2.0",
   "image": "ghcr.io/gnutlam/vulns:1.2.0",
-  "min_updatable_from": "0.2.0",
+  "min_updatable_from": "0.1.0",
   "min_schema": 1,
   "notes_url": "https://github.com/GnuTLam/vulns/releases/tag/v1.2.0"
 }

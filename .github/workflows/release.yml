@@ -64,7 +64,7 @@ jobs:
           {
             "version": "${{ steps.version.outputs.version }}",
             "image": "${{ env.IMAGE }}:${{ steps.version.outputs.version }}",
-            "min_updatable_from": "0.2.0",
+            "min_updatable_from": "0.1.0",
             "min_schema": 1,
             "notes_url": "https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}"
           }
