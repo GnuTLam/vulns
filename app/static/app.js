@@ -147,6 +147,184 @@
       .replace(/[^\p{L}\p{N}]+/gu, '-')
       .replace(/^-|-$/g, '');
 
+  // Light syntax colouring for fenced blocks that name their language. Each rule is a token type and
+  // a pattern with no capturing groups; the first rule that matches at a position wins.
+  const STRING = String.raw`"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'`;
+  const NUMBER = String.raw`\b\d+(?:\.\d+)?\b`;
+  const words = (list) => String.raw`\b(?:${list.join('|')})\b`;
+  const SYNTAX = {
+    http: [
+      ['kw', String.raw`^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE|CONNECT)\b|^HTTP\/[\d.]+`],
+      ['key', String.raw`^[A-Za-z0-9-]+(?=:)`],
+      ['str', String.raw`"(?:[^"\\\n]|\\.)*"`],
+      ['const', words(['true', 'false', 'null'])],
+    ],
+    json: [
+      ['key', String.raw`"(?:[^"\\\n]|\\.)*"(?=\s*:)`],
+      ['str', STRING],
+      ['num', String.raw`-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b`],
+      ['const', words(['true', 'false', 'null'])],
+    ],
+    shell: [
+      ['com', String.raw`(?:^|(?<=\s))#.*$`],
+      ['str', STRING],
+      ['const', String.raw`\$\{[^}\n]*\}|\$\w+`],
+      ['fn', String.raw`^\s*(?:sudo\s+)?[\w./][\w./-]*`],
+      ['attr', String.raw`(?<=\s)--?[\w-]+`],
+    ],
+    script: [
+      ['com', String.raw`\/\/.*$|\/\*[\s\S]*?\*\/|(?:^|(?<=\s))#.*$`],
+      ['str', `${STRING}|\`(?:[^\`\\\\]|\\\\.)*\``],
+      ['kw', words(['async', 'await', 'break', 'case', 'catch', 'class', 'const', 'continue', 'def', 'elif', 'else', 'except', 'export', 'extends', 'finally', 'for', 'from', 'function', 'if', 'import', 'in', 'lambda', 'let', 'new', 'not', 'or', 'and', 'pass', 'raise', 'return', 'switch', 'throw', 'try', 'typeof', 'var', 'while', 'with', 'yield', 'echo', 'public', 'private', 'static'])],
+      ['const', words(['true', 'false', 'null', 'undefined', 'None', 'True', 'False', 'this', 'self'])],
+      ['num', NUMBER],
+      ['fn', String.raw`[A-Za-z_$][\w$]*(?=\()`],
+    ],
+    markup: [
+      ['com', String.raw`<!--[\s\S]*?-->`],
+      ['kw', String.raw`<\/?[\w:-]+|\/?>`],
+      ['key', String.raw`(?<=\s)[\w:@-]+(?==)`],
+      ['str', STRING],
+    ],
+    yaml: [
+      ['com', String.raw`(?:^|(?<=\s))#.*$`],
+      ['key', String.raw`^\s*-?\s*[\w.-]+(?=:)`],
+      ['str', STRING],
+      ['const', words(['true', 'false', 'null', 'yes', 'no'])],
+      ['num', NUMBER],
+    ],
+  };
+  const LANGUAGES = {
+    http: ['http', 'HTTP'],
+    json: ['json', 'JSON'],
+    jsonc: ['json', 'JSON'],
+    bash: ['shell', 'Shell'],
+    sh: ['shell', 'Shell'],
+    shell: ['shell', 'Shell'],
+    zsh: ['shell', 'Shell'],
+    console: ['shell', 'Shell'],
+    js: ['script', 'JavaScript'],
+    javascript: ['script', 'JavaScript'],
+    jsx: ['script', 'JavaScript'],
+    ts: ['script', 'TypeScript'],
+    typescript: ['script', 'TypeScript'],
+    py: ['script', 'Python'],
+    python: ['script', 'Python'],
+    php: ['script', 'PHP'],
+    rb: ['script', 'Ruby'],
+    ruby: ['script', 'Ruby'],
+    java: ['script', 'Java'],
+    go: ['script', 'Go'],
+    html: ['markup', 'HTML'],
+    xml: ['markup', 'XML'],
+    svg: ['markup', 'SVG'],
+    yaml: ['yaml', 'YAML'],
+    yml: ['yaml', 'YAML'],
+  };
+  const compiled = {};
+  const highlight = (code, rules) => {
+    compiled[rules] ??= new RegExp(SYNTAX[rules].map(([, source]) => `(${source})`).join('|'), 'gm');
+    const pattern = compiled[rules];
+    const text = code.textContent;
+    const parts = [];
+    let last = 0;
+    for (const match of text.matchAll(pattern)) {
+      if (!match[0]) continue;
+      const type = SYNTAX[rules][match.slice(1).findIndex((group) => group !== undefined)][0];
+      if (match.index > last) parts.push(text.slice(last, match.index));
+      const token = document.createElement('span');
+      token.className = `tok-${type}`;
+      token.textContent = match[0];
+      parts.push(token);
+      last = match.index + match[0].length;
+    }
+    if (!parts.length) return;
+    if (last < text.length) parts.push(text.slice(last));
+    code.replaceChildren(...parts);
+  };
+
+  const icon = (paths) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('width', '13');
+    svg.setAttribute('height', '13');
+    svg.setAttribute('aria-hidden', 'true');
+    paths.forEach((d) => {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      svg.append(path);
+    });
+    return svg;
+  };
+  const COPY_ICON = ['M5.5 5.5h7v7h-7z', 'M10.5 5.5v-2h-7v7h2'];
+  const DONE_ICON = ['M3.5 8.5 6.5 11.5 12.5 4.5'];
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (_error) {
+      // No Clipboard API (plain HTTP to another host) or permission refused: copy through a selection.
+    }
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.cssText = 'position:fixed;opacity:0';
+    document.body.append(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+    if (!copied) throw new Error('copy failed');
+  };
+
+  // Every code block gets a header with its language and a Copy button; blocks that name their
+  // language are coloured. ``labels`` carries copyLabel and copiedLabel.
+  const decorateCode = (container, labels) => {
+    container.querySelectorAll('pre > code').forEach((code) => {
+      const pre = code.parentElement;
+      if (pre.parentElement.classList.contains('code-block')) return;
+      const name = [...code.classList].find((item) => item.startsWith('language-'))?.slice(9).toLowerCase() || '';
+      const [rules, display] = LANGUAGES[name] || ['', name || 'Text'];
+      const source = code.textContent;
+      if (rules) highlight(code, rules);
+
+      const block = document.createElement('figure');
+      block.className = 'code-block';
+      const head = document.createElement('figcaption');
+      head.className = 'code-head';
+      const language = document.createElement('span');
+      language.className = 'code-lang';
+      language.textContent = display;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'code-copy';
+      const label = document.createElement('span');
+      label.textContent = labels.copyLabel;
+      label.setAttribute('aria-live', 'polite');
+      button.append(icon(COPY_ICON), label);
+      let timer;
+      button.addEventListener('click', async () => {
+        try {
+          await copyText(source.replace(/\n$/, ''));
+        } catch (_error) {
+          return; // permission denied or unavailable: keep the stable Copy label
+        }
+        button.classList.add('is-copied');
+        button.firstChild.replaceWith(icon(DONE_ICON));
+        label.textContent = labels.copiedLabel;
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          button.classList.remove('is-copied');
+          button.firstChild.replaceWith(icon(COPY_ICON));
+          label.textContent = labels.copyLabel;
+        }, 1600);
+      });
+      head.append(language, button);
+      pre.replaceWith(block);
+      block.append(head, pre);
+    });
+  };
+
   const initReportReaders = () => {
     document.querySelectorAll('[data-report-reader]:not([data-reader-ready])').forEach((reader) => {
       reader.dataset.readerReady = 'true';
@@ -185,32 +363,7 @@
       if (used.has(window.location.hash.slice(1))) {
         document.getElementById(window.location.hash.slice(1)).scrollIntoView();
       }
-      if (navigator.clipboard?.writeText) {
-        reader.querySelectorAll('pre > code').forEach((code) => {
-          const pre = code.parentElement;
-          // The button lives beside the <pre>, not inside it, so it stays in the corner while a long line scrolls.
-          const block = document.createElement('div');
-          block.className = 'code-block';
-          pre.replaceWith(block);
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'code-copy';
-          button.textContent = reader.dataset.copyLabel;
-          button.setAttribute('aria-live', 'polite');
-          button.addEventListener('click', async () => {
-            try {
-              await navigator.clipboard.writeText(code.textContent);
-            } catch (_error) {
-              return; // permission denied or unavailable: keep the stable Copy label
-            }
-            button.textContent = reader.dataset.copiedLabel;
-            window.setTimeout(() => {
-              button.textContent = reader.dataset.copyLabel;
-            }, 1400);
-          });
-          block.append(pre, button);
-        });
-      }
+      decorateCode(reader, reader.dataset);
     });
   };
   initReportReaders();
@@ -706,6 +859,7 @@
           previewPane.replaceChildren(notice('alert danger', editor.dataset.sessionExpired));
         } else if (response.ok) {
           previewPane.innerHTML = await response.text();
+          decorateCode(previewPane, editor.dataset);
         } else {
           previewPane.replaceChildren(notice('alert danger', editor.dataset.previewFailed));
         }

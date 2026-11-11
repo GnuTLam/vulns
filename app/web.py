@@ -100,6 +100,8 @@ SAFE_INLINE_TYPES = {
 EVIDENCE_SRC = re.compile(r"^/evidence/([0-9a-f-]{36})(?:\?.*)?$")
 EVIDENCE_REFERENCE = re.compile(r"/evidence/([0-9a-f-]{36})")
 TABLE_ALIGNMENT = re.compile(r"^text-align:(left|center|right)$")
+# The language of a fenced code block, as Markdown-it writes it: ```http becomes class="language-http".
+CODE_LANGUAGE = re.compile(r"^language-[A-Za-z0-9_+#.-]{1,32}$")
 
 
 def _table_alignment(state) -> None:
@@ -188,6 +190,8 @@ ALLOWED_MARKDOWN_CLASSES = {
 
 def _allowed_attribute(tag: str, name: str, value: str) -> bool:
     if name == "class":
+        if tag == "code":
+            return bool(CODE_LANGUAGE.match(value))
         return value in ALLOWED_MARKDOWN_CLASSES.get(tag, ())
     return name in ALLOWED_MARKDOWN_ATTRIBUTES.get(tag, ())
 

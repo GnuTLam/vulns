@@ -28,6 +28,15 @@
   --sev-medium: #d69e00;
   --sev-high: #ea580c;
   --sev-critical: #e11d48;
+  --code-bg: #fafbfc;
+  --code-head: #f2f4f7;
+  --tok-kw: #c2352b;
+  --tok-key: #0f5bb5;
+  --tok-str: #116329;
+  --tok-const: #8250df;
+  --tok-fn: #6639ba;
+  --tok-attr: #0f5bb5;
+  --tok-com: #6b7785;
   --shadow: none;
   --shadow-md: 0 4px 14px rgba(23, 33, 43, 0.09);
   --sticky-shade: rgba(23, 33, 43, 0.25);
@@ -74,6 +83,15 @@ html[data-theme="dark"] {
   --sev-medium: #facc15;
   --sev-high: #fb923c;
   --sev-critical: #fb7185;
+  --code-bg: #12171d;
+  --code-head: #1a2028;
+  --tok-kw: #ff8a80;
+  --tok-key: #79b8ff;
+  --tok-str: #8fd19e;
+  --tok-const: #c4a5ff;
+  --tok-fn: #d2a8ff;
+  --tok-attr: #79b8ff;
+  --tok-com: #8b96a3;
   --shadow: none;
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.42);
   --sticky-shade: rgba(0, 0, 0, 0.65);
@@ -1523,6 +1541,7 @@ td > a:not(.strong-link):hover {
   background: color-mix(in srgb, var(--text) 7%, transparent);
   font-family: var(--mono);
   font-size: 0.86em;
+  font-variant-ligatures: none;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
@@ -1539,6 +1558,7 @@ td > a:not(.strong-link):hover {
   background: var(--surface-alt);
   overflow-x: auto;
   font: 12.5px/1.65 var(--mono);
+  font-variant-ligatures: none;
   tab-size: 4;
 }
 .markdown-body pre code {
@@ -1547,47 +1567,97 @@ td > a:not(.strong-link):hover {
   background: none;
   font: inherit;
 }
-.code-block {
-  position: relative;
-  margin: 1.1em 0;
+/* A decorated code block: a header with the language and Copy, then the code on a slightly
+   different ground. Copy is always visible, so it works the same with a mouse and on touch. */
+.markdown-body .code-block {
+  margin: 1.2em 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--code-bg);
+  overflow: hidden;
 }
-.code-block > pre {
-  margin: 0;
+.code-head {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--code-head);
+  line-height: 1;
 }
-/* Copy sits over the block's corner and appears on hover or keyboard focus; it stays put while a
-   long line scrolls and costs no blank row above the code. */
-.code-copy {
-  position: absolute;
-  top: 7px;
-  right: 7px;
-  height: 26px;
-  padding: 0 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
-  background: var(--surface);
+.code-lang {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
-  opacity: 0;
-  transition: opacity 0.12s;
 }
-.code-block:hover .code-copy,
-.code-copy:focus-visible {
-  opacity: 1;
+.code-copy {
+  flex-shrink: 0;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+.code-copy svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .code-copy:hover {
+  background: var(--surface-3);
   color: var(--text);
 }
-/* Touch screens have no hover: the button is always shown, in a row of its own above the code. */
-@media (hover: none) {
-  .code-copy {
-    top: 6px;
-    right: 6px;
-    opacity: 1;
-  }
-  .code-block > pre {
-    padding-top: 38px;
-  }
+.code-copy.is-copied {
+  color: var(--ok);
+}
+.markdown-body .code-block > pre {
+  margin: 0;
+  padding: 14px 16px 15px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 13px;
+  line-height: 1.62;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.code-block .tok-kw {
+  color: var(--tok-kw);
+}
+.code-block .tok-key {
+  color: var(--tok-key);
+}
+.code-block .tok-str {
+  color: var(--tok-str);
+}
+.code-block .tok-num,
+.code-block .tok-const {
+  color: var(--tok-const);
+}
+.code-block .tok-fn {
+  color: var(--tok-fn);
+}
+.code-block .tok-attr {
+  color: var(--tok-attr);
+}
+.code-block .tok-com {
+  color: var(--tok-com);
+  font-style: italic;
 }
 .markdown-body blockquote {
   padding: 0 0 0 15px;
