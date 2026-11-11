@@ -5,9 +5,23 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# Local configuration and data
+# Local configuration, secrets and data
 .env
+.env.*
+!.env.example
 data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+backups/
+*.pem
+*.key
+
+# Local agent and launcher settings (may hold dev passwords)
+.claude/
 
 # Editors and OS
 .idea/
