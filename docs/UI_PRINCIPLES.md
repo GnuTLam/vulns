@@ -15,6 +15,7 @@ VulnS is an operator workspace. Every screen should answer one of three question
 - One vulnerability, one page: it opens full width at `/findings/{id}`, never in a side panel, and one form creates or edits its report, submission and bounty together.
 - A list is not repeated beside itself: the program explorer appears on a program's pages and forms, not on the programs table.
 - Prefer one bordered container with internal dividers over several adjacent cards.
+- A report reads as one document: prose, code blocks and tables share the column's width, and the page (not a per-element cap) sets the line length. Inline code is tinted, never boxed.
 - Keep controls together and separate from results.
 - Tables are for full registries; dashboard summaries use compact lists.
 - Keep numbers, statuses and row actions aligned.
@@ -31,6 +32,7 @@ VulnS is an operator workspace. Every screen should answer one of three question
 
 ## Information
 
+- The header of a vulnerability keeps marks for severity and status only; type, CWE, CVSS and target are plain text.
 - Never rely on colour alone. Severity uses one to five bars plus a text label (written out in tables); status uses text plus a dot.
 - Charts repeat their values as text: totals above the bars, months named.
 - Group work by reason: the group heading states the status once, rows only call out exceptions.

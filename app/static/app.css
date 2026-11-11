@@ -36,7 +36,9 @@
   --sidebar: 248px;
   --explorer: 264px;
   --bar: 56px;
-  --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  --mono:
+    ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", "JetBrains Mono", "JetBrainsMono Nerd Font",
+    "Fira Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
   --font:
     "Segoe UI Variable Text", "Segoe UI Variable", "Aptos", "Segoe UI", "Noto Sans", Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -133,6 +135,11 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -994,9 +1001,17 @@ kbd {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+/* The title column takes the width the other columns leave, so a title is only cut when the
+   row really runs out of room. */
+.vulnerability-table td:first-child {
+  width: 100%;
+  max-width: 0;
+  min-width: 300px;
+}
 .vulnerability-table .strong-link,
 .vulnerability-table td small {
-  max-width: 300px;
+  max-width: none;
+  white-space: nowrap;
 }
 .earned-line {
   display: block;
@@ -1059,10 +1074,8 @@ th {
   padding: 0 16px;
   text-align: left;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
   background: var(--surface-alt);
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
@@ -1314,6 +1327,7 @@ td > a:not(.strong-link):hover {
 }
 .props {
   display: grid;
+  margin: 0;
 }
 .props > div {
   display: grid;
@@ -1337,7 +1351,19 @@ td > a:not(.strong-link):hover {
   overflow-wrap: anywhere;
 }
 .props dd.mono-cell {
-  font-size: 11.5px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* A long value such as an endpoint gets the full row under its label. */
+.props > div.wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+.props dd .text-action {
+  min-height: 0;
+}
+.props .tag-list {
+  margin-top: 0;
 }
 .linked-list,
 .related-list {
@@ -1405,12 +1431,12 @@ td > a:not(.strong-link):hover {
   color: var(--faint);
   font-size: 12.5px;
 }
-/* Markdown */
+/* Markdown: one typography for the report page and the editor preview. */
 .markdown-body {
   color: var(--text);
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.7;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .markdown-body > *:first-child {
   margin-top: 0;
@@ -1420,79 +1446,171 @@ td > a:not(.strong-link):hover {
 }
 .markdown-body h1,
 .markdown-body h2,
-.markdown-body h3 {
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
   margin: 1.5em 0 0.5em;
-  line-height: 1.3;
+  font-size: 1em;
   font-weight: 600;
+  line-height: 1.35;
+  text-wrap: balance;
+  scroll-margin-top: 20px;
 }
-.markdown-body h1 {
-  font-size: 17px;
-}
+/* Report templates open with "# Summary" beside "## Steps to reproduce", so both levels are sections. */
+.markdown-body h1,
 .markdown-body h2 {
-  font-size: 15px;
+  margin-top: 1.9em;
+  font-size: 1.3em;
+  letter-spacing: -0.012em;
 }
 .markdown-body h3 {
-  font-size: 14px;
-  color: var(--muted);
+  font-size: 1.1em;
+  letter-spacing: -0.005em;
+}
+.markdown-body :is(h1, h2, h3) + :is(h2, h3, h4) {
+  margin-top: 0.9em;
 }
 .markdown-body p,
 .markdown-body ul,
-.markdown-body ol {
-  margin: 0.6em 0;
+.markdown-body ol,
+.markdown-body blockquote {
+  margin: 0.85em 0;
 }
 .markdown-body ul,
 .markdown-body ol {
-  padding-left: 22px;
+  padding-left: 1.6em;
+}
+.markdown-body li + li {
+  margin-top: 0.3em;
+}
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 0.3em 0;
+}
+.markdown-body li > p {
+  margin: 0.4em 0;
+}
+.markdown-body li::marker {
+  color: var(--faint);
+}
+/* Task lists: the checkbox replaces the bullet. */
+.markdown-body li:has(> input[type="checkbox"]) {
+  margin-left: -1.6em;
+  padding-left: 0.1em;
+  list-style: none;
+}
+.markdown-body li > input[type="checkbox"] {
+  margin: 0 0.55em 0 0;
+  vertical-align: -2px;
+  cursor: default;
 }
 .markdown-body a {
   color: var(--link);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--link) 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
+.markdown-body a:hover {
+  text-decoration-color: currentColor;
+}
+/* Inline code is tinted, not boxed, so a paragraph full of identifiers still reads as prose
+   and a span that wraps keeps a clean edge on both lines. */
 .markdown-body code {
-  padding: 1.5px 5px;
-  border: 1px solid var(--line);
+  padding: 0.14em 0.38em;
   border-radius: 4px;
-  background: var(--surface-alt);
-  color: #b0410e;
-  font: 12px var(--mono);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  font-family: var(--mono);
+  font-size: 0.86em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
-html[data-theme="dark"] .markdown-body code {
-  color: #f0a06a;
+.markdown-body :is(h1, h2, h3, h4, h5, h6) code {
+  font-size: 0.9em;
 }
+/* The font is set on the block itself: a smaller font on the inner <code> alone would leave
+   the lines as tall as the surrounding prose. */
 .markdown-body pre {
-  margin: 0.8em 0;
-  padding: 13px 14px;
+  margin: 1.1em 0;
+  padding: 13px 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-alt);
-  overflow: auto;
+  overflow-x: auto;
+  font: 12.5px/1.65 var(--mono);
+  tab-size: 4;
 }
 .markdown-body pre code {
   padding: 0;
-  border: 0;
+  border-radius: 0;
   background: none;
+  font: inherit;
+}
+.code-block {
+  position: relative;
+  margin: 1.1em 0;
+}
+.code-block > pre {
+  margin: 0;
+}
+/* Copy sits over the block's corner and appears on hover or keyboard focus; it stays put while a
+   long line scrolls and costs no blank row above the code. */
+.code-copy {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.code-block:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+.code-copy:hover {
   color: var(--text);
-  font-size: 12px;
-  line-height: 1.6;
+}
+/* Touch screens have no hover: the button is always shown, in a row of its own above the code. */
+@media (hover: none) {
+  .code-copy {
+    top: 6px;
+    right: 6px;
+    opacity: 1;
+  }
+  .code-block > pre {
+    padding-top: 38px;
+  }
 }
 .markdown-body blockquote {
-  margin: 0.8em 0;
-  padding: 8px 14px;
-  border-left: 3px solid var(--accent-line);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  background: var(--surface-alt);
+  padding: 0 0 0 15px;
+  border-left: 3px solid var(--line-strong);
   color: var(--muted);
+}
+.markdown-body blockquote > :first-child {
+  margin-top: 0;
+}
+.markdown-body blockquote > :last-child {
+  margin-bottom: 0;
 }
 .markdown-body img {
   max-width: 100%;
+  height: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  vertical-align: middle;
 }
 .markdown-body video {
   display: block;
   max-width: 100%;
-  margin: 0.8em 0;
+  margin: 1.1em 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #000;
@@ -1509,38 +1627,31 @@ html[data-theme="dark"] .markdown-body code {
   width: max-content;
   max-width: 100%;
   overflow-x: auto;
-  margin: 0.8em 0;
+  margin: 1.1em 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 0.93em;
   line-height: 1.5;
 }
 .markdown-body th,
 .markdown-body td {
   position: static;
   height: auto;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: inherit;
   vertical-align: top;
   white-space: normal;
   overflow-wrap: normal;
 }
-.markdown-body th + th,
-.markdown-body td + td {
-  border-left: 1px solid var(--line);
-}
+/* Headers stay on one line, which also keeps a narrow column from collapsing to a word per row. */
 .markdown-body th {
-  color: var(--text);
-  font-size: 12.5px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-.markdown-body td {
-  color: var(--text);
-  font-size: inherit;
-}
-.markdown-body tbody tr:nth-child(even) td {
   background: var(--surface-alt);
+  white-space: nowrap;
+}
+.markdown-body tbody tr:hover td {
+  background: none;
 }
 .markdown-body tbody tr:last-child td {
   border-bottom: 0;
@@ -1558,137 +1669,78 @@ html[data-theme="dark"] .markdown-body code {
   height: 1px;
   border: 0;
   background: var(--line);
-  margin: 1.4em 0;
+  margin: 2em 0;
 }
-.report-reader {
-  font-size: 15px;
-  line-height: 1.76;
+/* The report on a vulnerability page: generous padding, and every block shares the column's
+   width so prose, code and tables end on the same edge. */
+.vuln-main {
+  --gutter: 32px;
 }
-.report-reader > p,
-.report-reader > ul,
-.report-reader > ol,
-.report-reader > blockquote {
-  max-width: 76ch;
+.report-reader,
+.report-section {
+  padding: 26px var(--gutter) 30px;
 }
-.report-reader h1,
-.report-reader h2,
-.report-reader h3 {
-  scroll-margin-top: 72px;
-  letter-spacing: -0.01em;
+/* The panels under the report start on the same left edge as its text. */
+.vuln-main .panel-head,
+.vuln-main .empty-compact,
+.vuln-main .inline-upload,
+.vuln-main .attachment-grid {
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
 }
-.report-reader h1 {
-  font-size: clamp(21px, 2vw, 25px);
-  margin: 0 0 0.75em;
+.report-section {
+  border-top: 1px solid var(--line);
 }
-.report-reader h2 {
-  font-size: 18px;
-  margin: 1.8em 0 0.65em;
+.report-section > h2 {
+  margin: 0 0 0.5em;
 }
-.report-reader h3 {
-  font-size: 15.5px;
-  margin: 1.55em 0 0.55em;
+.report-section .pre-line {
+  color: inherit;
+  font-size: inherit;
 }
-.report-reader p,
-.report-reader ul,
-.report-reader ol {
-  margin: 0.75em 0;
+.markdown-body .report-links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .report-toc {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-alt);
-}
-.report-toc > strong {
-  flex: 0 0 auto;
-  padding-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
-}
-.report-toc-links {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 2px;
   flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 20px;
+  padding: 11px var(--gutter);
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  line-height: 1.5;
 }
-.report-toc-link {
-  min-height: 28px;
-  padding: 3px 8px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--link);
-  font-size: 12px;
+.report-toc-label {
+  color: var(--faint);
+}
+.report-toc a {
+  color: var(--muted);
   font-weight: 500;
-  line-height: 1.35;
-  text-align: left;
 }
-.report-toc-link:hover {
-  background: var(--surface-3);
-}
-.report-toc-link.level-3 {
-  color: var(--muted);
-  font-size: 11.5px;
-}
-.markdown-body pre.code-block {
-  position: relative;
-  padding-top: 42px;
-}
-.code-copy {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  height: 27px;
-  padding: 0 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 11.5px;
-  font-weight: 600;
-}
-.code-copy:hover {
-  background: var(--surface-3);
+.report-toc a:hover {
   color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 @media (max-width: 760px) {
-  .report-reader {
-    font-size: 14.5px;
-    line-height: 1.72;
+  .vuln-main {
+    --gutter: 16px;
   }
-  .report-reader h1 {
-    font-size: 21px;
-  }
-  .report-reader h2 {
-    font-size: 17px;
+  .report-reader,
+  .report-section {
+    padding-top: 18px;
+    padding-bottom: 22px;
   }
   .report-toc {
-    display: block;
-    padding: 9px 14px;
+    gap: 2px 16px;
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
-  .report-toc > strong {
-    display: block;
-    padding: 0 0 5px;
-  }
-  .report-toc-links {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .report-toc-links::-webkit-scrollbar {
-    display: none;
-  }
-  .report-toc-link {
-    flex: 0 0 auto;
-  }
-  .markdown-body pre.code-block {
-    padding-top: 40px;
+  .report-toc-label {
+    flex-basis: 100%;
   }
 }
 .pre-line {
@@ -1945,7 +1997,7 @@ html[data-theme="dark"] .markdown-body code {
   box-shadow: none;
 }
 .markdown-body.editor-pane {
-  padding: 16px;
+  padding: 22px 26px;
 }
 .preview-placeholder {
   padding: 18px;
@@ -2819,39 +2871,65 @@ body.palette-open {
   cursor: pointer;
 }
 /* Vulnerability page */
+/* A reading page: narrower than the registries so the report keeps a comfortable line length. */
+.page-narrow {
+  max-width: 1216px;
+}
+/* The page has its own title, so the last crumb is a plain reference, not a heading. */
+.crumbs.crumbs-trail strong {
+  font-size: 13px;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
 .vuln-head {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .vuln-head h1 {
   margin: 0;
-  font-size: clamp(21px, 2.2vw, 26px);
+  font-size: clamp(21px, 1.9vw, 25px);
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.017em;
   line-height: 1.3;
-  overflow-wrap: anywhere;
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
-.vuln-chips {
+/* Severity and status keep their marks; type, CWE, CVSS and target read as one quiet line. */
+.vuln-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 14px;
   margin-top: 10px;
 }
-.chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-alt);
+/* Every fact carries a leading dot in its left padding; the clip hides the one that would open
+   a line, on the first row and on any row the list wraps to. */
+.vuln-facts {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-left: -18px;
+  clip-path: inset(0 0 0 18px);
   color: var(--muted);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
+  font-size: 13px;
 }
-.chip .severity {
-  margin: 0 2px 0 -8px;
+.vuln-facts > span {
+  position: relative;
+  padding-left: 18px;
+}
+.vuln-facts > span::before {
+  content: "\00b7";
+  position: absolute;
+  left: 0;
+  width: 18px;
+  color: var(--faint);
+  font-family: var(--font);
+  text-align: center;
+}
+.vuln-target {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
 }
 /* The signal bars with the level written next to them, for table cells. */
 .severity-label {
@@ -2868,17 +2946,14 @@ body.palette-open {
   width: 22px;
   height: 22px;
 }
-.vuln-target {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font: 12.5px var(--mono);
-  overflow-wrap: anywhere;
-}
 .vuln-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
+  gap: 20px;
   align-items: start;
+}
+.report-reader:empty {
+  display: none;
 }
 .vuln-main,
 .vuln-aside {
@@ -2956,25 +3031,29 @@ body.palette-open {
   list-style: none;
   border-top: 1px solid var(--line);
 }
+.timeline {
+  padding: 8px 0;
+}
 .timeline li {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 7px 16px;
-  border-bottom: 1px solid var(--line);
+  padding: 4px 16px;
   color: var(--muted);
   font-size: 12.5px;
-}
-.timeline li:last-child {
-  border-bottom: 0;
 }
 .timeline time,
 .timeline b {
   color: var(--text);
-  font: 12px var(--mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
-.timeline-gap {
-  background: var(--surface-alt);
+/* The durations follow the dates as a summary, set off by one rule. */
+.timeline li:not(.timeline-gap) + .timeline-gap {
+  margin-top: 8px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
 }
 .panel-head .paid-badge {
   margin-left: auto;
@@ -3022,12 +3101,10 @@ body.palette-open {
   border-top: 1px solid var(--line);
 }
 .note-block h3 {
-  margin: 0 0 6px;
-  color: var(--muted);
-  font-size: 11.5px;
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
 }
 .attachment-grid {
   display: grid;
@@ -3105,22 +3182,45 @@ body.palette-open {
   min-width: 190px;
   height: 32px;
 }
+/* Below the two-column layout the side panels join the page flow: tracking and bounty stay
+   above the report, the reference panels follow it. */
 @media (max-width: 1180px) {
-  .vuln-layout {
-    grid-template-columns: minmax(0, 1fr);
+  .page-narrow {
+    max-width: 900px;
   }
-  /* Status and bounty come before the report on narrow screens. */
+  .vuln-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .vuln-main {
+    grid-column: 1 / -1;
+  }
   .vuln-aside {
+    display: contents;
+  }
+  .vuln-layout .vuln-aside > .panel {
+    margin-top: 0;
+  }
+  .vuln-aside > .aside-lead {
     order: -1;
   }
 }
 @media (max-width: 760px) {
-  .toolbar-actions .step-links {
-    grid-column: 1 / -1;
-    justify-content: flex-end;
+  .vuln-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .toolbar-actions .step-links .button {
-    width: 34px;
+  /* One row: previous and next on the left, Edit and More on the right. */
+  .vuln-toolbar .toolbar-actions {
+    display: flex;
+  }
+  .vuln-toolbar .toolbar-actions .button {
+    width: auto;
+  }
+  .vuln-toolbar .toolbar-actions .icon-button {
+    width: 32px;
+  }
+  .vuln-toolbar .step-links {
+    margin-right: auto;
   }
 }
 /* Dashboard */
@@ -3529,6 +3629,9 @@ body.drawer-open {
   }
 }
 @media (max-width: 1000px) {
+  .markdown-body :is(h1, h2, h3, h4, h5, h6) {
+    scroll-margin-top: 72px;
+  }
   .sidebar {
     width: 270px;
     transform: translateX(-100%);

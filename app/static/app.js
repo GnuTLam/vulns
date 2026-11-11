@@ -138,43 +138,64 @@
     node.addEventListener('toggle', () => localStorage.setItem(key, node.open ? 'open' : 'closed'));
   });
 
+  // A URL fragment for a heading: its text in lower case, accents dropped, anything else a hyphen.
+  const headingSlug = (text) =>
+    text
+      .normalize('NFKD')
+      .replace(/\p{M}+/gu, '')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '-')
+      .replace(/^-|-$/g, '');
+
   const initReportReaders = () => {
     document.querySelectorAll('[data-report-reader]:not([data-reader-ready])').forEach((reader) => {
       reader.dataset.readerReady = 'true';
       const headings = [...reader.querySelectorAll('h1, h2, h3')].filter((heading) => heading.textContent.trim());
-      if (headings.length >= 2) {
+      const used = new Set();
+      headings.forEach((heading, index) => {
+        const base = `section-${headingSlug(heading.textContent) || index + 1}`;
+        let id = base;
+        for (let copy = 2; used.has(id) || document.getElementById(id); copy += 1) id = `${base}-${copy}`;
+        used.add(id);
+        heading.id = id;
+      });
+      // The outline names the report's sections only. Templates open with "# Summary" beside
+      // "## Steps to reproduce", so h1 and h2 are one level; subsections join when a single title heads the report.
+      const level = (heading) => Math.max(2, Number(heading.tagName[1]));
+      const top = Math.min(...headings.map(level));
+      let sections = headings.filter((heading) => level(heading) === top);
+      if (sections.length < 2) sections = headings.filter((heading) => level(heading) <= top + 1);
+      if (sections.length >= 2) {
         const toc = document.createElement('nav');
         toc.className = 'report-toc';
         toc.setAttribute('aria-label', reader.dataset.tocLabel);
-        const label = document.createElement('strong');
+        const label = document.createElement('span');
+        label.className = 'report-toc-label';
         label.textContent = reader.dataset.tocLabel;
-        const links = document.createElement('div');
-        links.className = 'report-toc-links';
-        headings.forEach((heading) => {
-          const link = document.createElement('button');
-          link.type = 'button';
-          link.className = `report-toc-link level-${heading.tagName.slice(1)}`;
+        toc.append(label);
+        sections.forEach((heading) => {
+          const link = document.createElement('a');
+          link.href = `#${heading.id}`;
           link.textContent = heading.textContent.trim();
-          link.addEventListener('click', () => {
-            const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-            heading.scrollIntoView({ behavior, block: 'start' });
-            heading.setAttribute('tabindex', '-1');
-            heading.focus({ preventScroll: true });
-          });
-          links.append(link);
+          toc.append(link);
         });
-        toc.append(label, links);
         reader.before(toc);
+      }
+      // The ids did not exist when the browser first looked for the fragment.
+      if (used.has(window.location.hash.slice(1))) {
+        document.getElementById(window.location.hash.slice(1)).scrollIntoView();
       }
       if (navigator.clipboard?.writeText) {
         reader.querySelectorAll('pre > code').forEach((code) => {
           const pre = code.parentElement;
-          pre.classList.add('code-block');
+          // The button lives beside the <pre>, not inside it, so it stays in the corner while a long line scrolls.
+          const block = document.createElement('div');
+          block.className = 'code-block';
+          pre.replaceWith(block);
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'code-copy';
           button.textContent = reader.dataset.copyLabel;
-          button.setAttribute('aria-label', reader.dataset.copyLabel);
           button.setAttribute('aria-live', 'polite');
           button.addEventListener('click', async () => {
             try {
@@ -187,7 +208,7 @@
               button.textContent = reader.dataset.copyLabel;
             }, 1400);
           });
-          pre.append(button);
+          block.append(pre, button);
         });
       }
     });

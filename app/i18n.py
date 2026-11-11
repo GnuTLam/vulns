@@ -112,6 +112,7 @@ TRANSLATIONS: dict[str, str] = {
     "bug_type": "Bug type",
     "severity": "Severity",
     "status": "Status",
+    "tracking": "Tracking",
     "target": "Target",
     "scope": "Scope",
     "summary": "Summary",
