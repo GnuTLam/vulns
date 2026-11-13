@@ -15,6 +15,15 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def local_day(moment: datetime | None) -> str:
+    """The server's calendar day of a stored timestamp; SQLite returns them naive, in UTC."""
+    if moment is None:
+        return date.today().isoformat()
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return moment.astimezone().date().isoformat()
+
+
 def day_gap(start: str, end: str) -> int | None:
     """Whole days between two ``YYYY-MM-DD`` strings; ``None`` when missing, malformed or negative."""
     if not start or not end:
@@ -201,6 +210,37 @@ class Finding(Base):
         if self.is_paid or not self.triaged_at:
             return None
         return day_gap(self.triaged_at, date.today().isoformat())
+
+    def _waited(self, steps: tuple[tuple[str, str], ...]) -> tuple[int, str]:
+        """Days since the latest recorded step, with the step's name.
+
+        ``steps`` runs from the latest step to the earliest; the first one with a date wins.
+        A record without any date counts from the day it was added, so the dashboard never
+        shows a blank where an age belongs.
+        """
+        today = date.today().isoformat()
+        for name, value in steps:
+            days = day_gap(value, today)
+            if days is not None:
+                return days, name
+        return day_gap(local_day(self.created_at), today) or 0, "added"
+
+    @property
+    def reply_wait(self) -> tuple[int, str]:
+        """How long an open report has waited on the program: since triage, else submission."""
+        return self._waited((("triaged", self.triaged_at), ("submitted", self.submitted_at)))
+
+    @property
+    def payment_wait(self) -> tuple[int, str]:
+        """How long an accepted reward has been owed: since the award, resolution, triage or submission."""
+        return self._waited(
+            (
+                ("rewarded", self.rewarded_at),
+                ("resolved", self.resolved_at),
+                ("triaged", self.triaged_at),
+                ("submitted", self.submitted_at),
+            )
+        )
 
     @property
     def effective_severity(self) -> str:

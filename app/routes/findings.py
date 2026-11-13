@@ -105,9 +105,14 @@ def findings_list(
 
     parsed = parse_query(compose_query(q, severity=severity if severity in SEVERITIES else "", program_id=program_id))
     matching, _total, _ranked = finding_rows(db, parsed, limit=1200)
-    status_counts = Counter(finding.status for finding in matching)
-    selected_status = status if status in STATUSES else ""
-    items = [finding for finding in matching if not selected_status or finding.status == selected_status]
+
+    # An unsent draft is listed as Draft, not under the status its record happens to carry.
+    def state(finding: Finding) -> str:
+        return "draft" if finding.knowledge.is_draft else finding.status
+
+    status_counts = Counter(state(finding) for finding in matching)
+    selected_status = status if status in STATUSES or status == "draft" else ""
+    items = [finding for finding in matching if not selected_status or state(finding) == selected_status]
     return render(
         request,
         "findings.html",

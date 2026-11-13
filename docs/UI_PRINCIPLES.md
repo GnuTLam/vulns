@@ -36,6 +36,10 @@ VulnS is an operator workspace. Every screen should answer one of three question
 - Never rely on colour alone. Severity uses one to five bars plus a text label (written out in tables); status uses text plus a dot.
 - Charts repeat their values as text: totals above the bars, months named.
 - Group work by reason: the group heading states the status once, rows only call out exceptions.
+- A submission in any list reads the same: the title, then `#ID · program · Submitted date`, then severity, status and bounty in fixed columns. The bounty column is the rightmost; an empty cell means no bounty is due.
+- Severity is the louder mark (a tinted pill with its bars); status is a word with a coloured dot. Paid amounts are plain; only *Unpaid* is flagged, with the same badge everywhere.
+- No derived ages or counters on rows ("41 days waiting"): order the list instead, and show the dates the hunter entered.
+- An unsent draft is shown as *Draft* wherever a status appears, and counted apart from submitted reports.
 - Empty states are explicit. An empty workspace shows a single getting-started panel instead of zeros.
 - Amounts in different currencies are never added together.
 

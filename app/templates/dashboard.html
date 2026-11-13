@@ -44,7 +44,7 @@
       </section>
     {% else %}
       {% set dashboard_metrics = [
-        ("open", "/findings?q=is%3Aopen", tr.open_vulnerabilities, open_count),
+        ("open", "/findings?q=is%3Aopen%20-is%3Adraft", tr.open_vulnerabilities, open_count),
         ("accepted", "/findings?q=outcome%3Aaccepted", tr.accepted_or_later, accepted_count),
         ("vulnerabilities", "/findings", tr.total_vulnerabilities, finding_total),
         ("rewarded", "/findings?q=has%3Areward", tr.rewarded, metrics.rewarded_count),
@@ -62,125 +62,73 @@
         {% endfor %}
       </section>
 
-      {% macro queue_group(label, count, shown, query) %}
-        <div class="queue-group">
-          <span>{{ label }}</span>
-          <b>{{ count }}</b>
+      {# A submission as one row: the title and where it was sent, then the same three columns
+         everywhere: severity, status and bounty. #}
+      {% macro row(finding) -%}
+        {{ ui.vuln_row(finding.url, finding.knowledge.title, finding.report_id, finding.program.name,
+                       finding.submitted_at, finding.severity, finding) }}
+      {%- endmacro %}
+
+      {% macro group_head(label, count, shown, query) -%}
+        <div class="list-group">
+          <span>{{ label }}</span><b>{{ count }}</b>
           {% if count > shown %}<a href="/search?q={{ query|urlencode }}">{{ tr.view_all }}</a>{% endif %}
         </div>
-      {% endmacro %}
+      {%- endmacro %}
 
-      {% macro queue_age(days, hint) %}
-        {% if days is not none %}
-          <span class="queue-age {{ 'stale' if days > 30 }}" title="{{ days }} {{ hint }}">{{ days }}{{ tr.day_short }}</span>
-        {% else %}
-          <span class="queue-age is-empty">–</span>
-        {% endif %}
-      {% endmacro %}
-
-      <section class="panel queue-panel">
-        <div class="panel-head">
-          <h2 class="section-label">{{ tr.needs_attention }}</h2>
-          <span class="meta">{{ attention_total }} {{ tr['item'] if attention_total == 1 else tr['items'] }}</span>
-        </div>
-        {% if attention_total %}
-          <div class="queue">
-            {% if awaiting %}
-              {{ queue_group(tr.waiting_on_program, attention_groups.awaiting, awaiting|length, saved_filter_queries.awaiting_response) }}
-              {% for finding in awaiting %}
-                <a class="queue-row" href="{{ finding.url }}">
-                  <span class="queue-main">
-                    <strong>{{ finding.knowledge.title }}</strong>
-                    <small>
-                      {{- finding.program.name }}
-                      {%- if finding.report_id %} · {{ finding.report_id }}{% endif %}
-                      {%- if finding.status == "processing" %} · {{ humanize(finding.status) }}{% endif -%}
-                    </small>
-                  </span>
-                  <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
-                  {% if finding.days_waiting is not none %}
-                    {{ queue_age(finding.days_waiting, tr.waiting_since_submission) }}
-                  {% else %}
-                    {{ queue_age(finding.days_awaiting_reward, tr.waiting_since_triage) }}
-                  {% endif %}
-                </a>
-              {% endfor %}
-            {% endif %}
-            {% if unpaid %}
-              {{ queue_group(tr.unpaid_accepted, attention_groups.unpaid, unpaid|length, saved_filter_queries.unpaid_accepted) }}
-              {% for finding in unpaid %}
-                <a class="queue-row" href="{{ finding.url }}">
-                  <span class="queue-main">
-                    <strong>{{ finding.knowledge.title }}</strong>
-                    <small>
-                      {{- finding.program.name }}
-                      {%- if finding.report_id %} · {{ finding.report_id }}{% endif -%}
-                    </small>
-                  </span>
-                  <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
-                  {{ queue_age(finding.days_awaiting_reward, tr.waiting_since_triage) }}
-                </a>
-              {% endfor %}
-            {% endif %}
-            {% if drafts %}
-              {{ queue_group(tr.drafts_to_finish, attention_groups.drafts, drafts|length, saved_filter_queries.needs_triage) }}
-              {% for entry in drafts %}
-                <a class="queue-row" href="{{ report_url(entry) }}">
-                  <span class="queue-main">
-                    <strong>{{ entry.title }}</strong>
-                    <small>{{ entry.summary|truncate(70) if entry.summary else entry.bug_type }}</small>
-                  </span>
-                  <span class="severity {{ entry.default_severity }}">{{ humanize(entry.default_severity) }}</span>
-                  <span class="queue-age" title="{{ tr.updated }} {{ entry.updated_at.strftime('%Y-%m-%d') }}">
-                    {{- entry.updated_at.strftime("%b %d") -}}
-                  </span>
-                </a>
-              {% endfor %}
-            {% endif %}
-          </div>
-        {% else %}
-          <p class="empty-compact">{{ tr.nothing_waiting }}</p>
-        {% endif %}
-      </section>
-
-      <div class="grid-2 home-lower">
-        <section class="panel">
-          <div class="panel-head">
-            <h2 class="section-label">{{ tr.recent_findings }}</h2>
-            {% if recent_findings %}<a class="meta" href="/findings">{{ tr.view_all }}</a>{% endif %}
-          </div>
-          {% if recent_findings %}
-            <div class="recent-list">
-              {% for finding in recent_findings %}
-                <a class="recent-row" href="{{ finding.url }}">
-                  <div class="recent-main">
-                    <strong>{{ finding.knowledge.title }}</strong>
-                    <small>
-                      {%- if finding.target %}{{ finding.target }} · {% endif -%}
-                      {{ finding.knowledge.bug_type }} · {{ finding.program.name -}}
-                    </small>
-                  </div>
-                  <span class="severity {{ finding.severity }}">{{ humanize(finding.severity) }}</span>
-                  <span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span>
-                </a>
-              {% endfor %}
-            </div>
-          {% elif finding_total %}
-            <p class="empty-compact">{{ tr.empty }}</p>
-          {% else %}
-            <div class="empty-state">
-              <h2>{{ tr.first_steps }}</h2>
-              <p>{{ tr.first_steps_help }}</p>
-              <div class="empty-actions">
-                <a class="button" href="/programs/new">{{ tr.new_program }}</a>
-                <a class="button primary" href="/findings/new">{{ tr.new_vulnerability }}</a>
+      <div class="home-grid">
+        <div class="home-main">
+          {% if attention_total %}
+            {# Your move first (drafts to send, money to collect), then what waits on a program. #}
+            <section class="panel home-attention">
+              {{ ui.vuln_list_head(tr.needs_attention, attention_total) }}
+              <div class="vuln-list">
+                {% if drafts %}
+                  {{ group_head(tr.drafts_to_finish, attention_groups.drafts, drafts|length, saved_filter_queries.needs_triage) }}
+                  {% for entry in drafts %}
+                    {% set finding = entry.findings[0] if entry.findings else none %}
+                    {{ ui.vuln_row(report_url(entry), entry.title, finding.report_id if finding else "",
+                                   finding.program.name if finding else tr.unfiled_reports, "",
+                                   entry.default_severity, finding) }}
+                  {% endfor %}
+                {% endif %}
+                {% if unpaid %}
+                  {{ group_head(tr.unpaid_accepted, attention_groups.unpaid, unpaid|length, saved_filter_queries.unpaid_accepted) }}
+                  {% for finding in unpaid %}{{ row(finding) }}{% endfor %}
+                {% endif %}
+                {% if awaiting %}
+                  {{ group_head(tr.waiting_on_program, attention_groups.awaiting, awaiting|length, saved_filter_queries.awaiting_response) }}
+                  {% for finding in awaiting %}{{ row(finding) }}{% endfor %}
+                {% endif %}
               </div>
-            </div>
+            </section>
           {% endif %}
-        </section>
 
-        <div class="panel-stack">
-          <section class="panel">
+          <section class="panel home-recent">
+            {% if recent_findings %}
+              {{ ui.vuln_list_head(tr.recent_findings, link="/findings") }}
+              <div class="vuln-list">
+                {% for finding in recent_findings %}{{ row(finding) }}{% endfor %}
+              </div>
+            {% elif finding_total %}
+              <div class="panel-head"><h2 class="section-label">{{ tr.recent_findings }}</h2></div>
+              <p class="empty-compact">{{ tr.empty }}</p>
+            {% else %}
+              <div class="panel-head"><h2 class="section-label">{{ tr.recent_findings }}</h2></div>
+              <div class="empty-state">
+                <h2>{{ tr.first_steps }}</h2>
+                <p>{{ tr.first_steps_help }}</p>
+                <div class="empty-actions">
+                  <a class="button" href="/programs/new">{{ tr.new_program }}</a>
+                  <a class="button primary" href="/findings/new">{{ tr.new_vulnerability }}</a>
+                </div>
+              </div>
+            {% endif %}
+          </section>
+        </div>
+
+        <div class="home-side panel-stack">
+          <section class="panel home-earnings">
             <div class="panel-head">
               <h2 class="section-label">{{ tr.earnings }}</h2>
               <a class="meta" href="/findings?tab=bounty">{{ tr.view_all }}</a>
@@ -191,7 +139,7 @@
                   <dt>{{ ui.money(row.total, row.currency) }}</dt>
                   <dd>
                     {%- if row.unpaid %}<a class="paid-badge is-unpaid" href="/findings?tab=bounty#unpaid">{{ tr.unpaid }} {{ row.unpaid|money(row.currency) }}</a>
-                    {%- else %}<span class="paid-badge is-paid">{{ tr.paid }}</span>{% endif -%}
+                    {%- endif -%}
                   </dd>
                 </div>
               {% else %}
@@ -218,7 +166,7 @@
             {% endif %}
           </section>
 
-          <section class="panel">
+          <section class="panel home-breakdown">
             <div class="panel-head">
               <h2 class="section-label">{{ tr.breakdown }}</h2>
             </div>
@@ -226,8 +174,8 @@
               <div class="breakdown-section">
                 <h3>{{ tr.status_pipeline }}</h3>
                 <div class="bars">
-                  {% for status in statuses if status_counts.get(status, 0) %}
-                    {% set count = status_counts[status] %}
+                  {% for status in ["draft"] + statuses|list if pipeline_counts.get(status, 0) %}
+                    {% set count = pipeline_counts[status] %}
                     <a class="bar-row status-{{ status }}" href="/findings?status={{ status }}">
                       <span>{{ humanize(status) }}</span>
                       <span class="bar"><i style="width: {{ count / max_status * 100 }}%"></i></span>

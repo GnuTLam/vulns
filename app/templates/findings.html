@@ -42,7 +42,7 @@
             <input class="visually-hidden" type="radio" name="status" value="" {{ 'checked' if not selected_status }}>
             {{ tr.all }}<b>{{ match_total }}</b>
           </label>
-          {% for item in statuses %}
+          {% for item in (["draft"] if status_counts.get("draft") or selected_status == "draft" else []) + statuses|list %}
             <label class="segment {{ 'active' if selected_status == item }}">
               <input class="visually-hidden" type="radio" name="status" value="{{ item }}" {{ 'checked' if selected_status == item }}>
               {{ humanize(item) }}<b>{{ status_counts.get(item, 0) }}</b>

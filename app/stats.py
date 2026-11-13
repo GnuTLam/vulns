@@ -98,14 +98,15 @@ def workspace_snapshot(db: Session) -> dict:
     )
     drafts_total = draft_count(db)
 
-    # Oldest first. Each group shows a few rows but reports its full count.
+    # Longest wait first. Each group shows a few rows but reports its full count. A draft has
+    # not been sent, so it waits on the hunter (Drafts to finish), not on the program.
     awaiting_all = sorted(
-        (f for f in all_findings if f.status not in CLOSED_STATUSES),
-        key=lambda f: (f.days_waiting is None, -(f.days_waiting or 0)),
+        (f for f in all_findings if f.status not in CLOSED_STATUSES and not f.knowledge.is_draft),
+        key=lambda f: -f.reply_wait[0],
     )
     unpaid_all = sorted(
         (f for f in all_findings if f.outcome == "accepted" and not f.is_paid),
-        key=lambda f: (f.days_awaiting_reward is None, -(f.days_awaiting_reward or 0)),
+        key=lambda f: -f.payment_wait[0],
     )
     awaiting, unpaid = awaiting_all[:ATTENTION_ROWS], unpaid_all[:ATTENTION_ROWS]
     drafts = (
@@ -117,6 +118,7 @@ def workspace_snapshot(db: Session) -> dict:
     )
     attention_groups = {"awaiting": len(awaiting_all), "unpaid": len(unpaid_all), "drafts": drafts_total}
     shown_ids = {finding.id for finding in [*awaiting, *unpaid]}
+    shown_ids.update(finding.id for entry in drafts for finding in entry.findings)
     return {
         "program_count": program_count,
         "knowledge_count": knowledge_count,
@@ -124,9 +126,11 @@ def workspace_snapshot(db: Session) -> dict:
         "draft_count": drafts_total,
         "unfiled_count": unfiled_count(db),
         # Matches the `is:open` search the dashboard card links to.
-        "open_count": sum(1 for f in all_findings if f.status not in CLOSED_STATUSES),
+        "open_count": sum(1 for f in all_findings if f.status not in CLOSED_STATUSES and not f.knowledge.is_draft),
         "accepted_count": sum(1 for f in all_findings if f.outcome == "accepted"),
         "status_counts": Counter(f.status for f in all_findings),
+        # The dashboard pipeline counts an unsent draft as a draft, whatever its status field says.
+        "pipeline_counts": Counter("draft" if f.knowledge.is_draft else f.status for f in all_findings),
         "severity_counts": Counter(f.severity for f in all_findings),
         "earnings": rewards_by_currency(all_findings),
         "earnings_split": earnings_by_currency(all_findings),

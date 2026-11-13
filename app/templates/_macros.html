@@ -22,12 +22,12 @@
 
 {# Signal bars with the level written next to them, for table cells. #}
 {% macro severity_label(severity) -%}
-  <span class="severity-label"><span class="severity {{ severity }}" aria-hidden="true"></span>{{ humanize(severity) }}</span>
+  <span class="severity-label sev-{{ severity }}" title="{{ humanize(severity) }}"><span class="severity {{ severity }}" aria-hidden="true"></span>{{ tr.informational_short if severity == "informational" else humanize(severity) }}</span>
 {%- endmacro %}
 
 {# Whether a recorded reward has been received; nothing when no reward is recorded. #}
-{% macro paid_badge(finding) -%}
-  {% if finding.total_reward is not none %}
+{% macro paid_badge(finding, only_unpaid=false) -%}
+  {% if finding.total_reward is not none and not (only_unpaid and finding.is_paid) %}
     <span class="paid-badge {{ 'is-paid' if finding.is_paid else 'is-unpaid' }}">{{ tr.paid if finding.is_paid else tr.unpaid }}</span>
   {% endif %}
 {%- endmacro %}
@@ -50,24 +50,21 @@
         {% for finding in items %}
           <tr data-row-href="{{ finding.url }}">
             <td>
-              <a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
+              <a class="strong-link" href="{{ finding.url }}" title="{{ finding.knowledge.title }}">{{ display_title(finding.knowledge.title, finding.report_id) }}</a>
               <small>
-                {{- finding.knowledge.bug_type }}
-                {%- if finding.report_id %} · {{ finding.report_id }}{% endif %}
-                {%- if finding.knowledge.is_draft %} · <span class="draft-badge">{{ tr.draft_badge }}</span>{% endif -%}
+                {%- if finding.report_id %}<span class="report-ref">#{{ finding.report_id }}</span> · {% endif -%}
+                {{ finding.knowledge.bug_type -}}
               </small>
             </td>
             {% if show_program %}<td><a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a></td>{% endif %}
             <td>{{ severity_label(finding.severity) }}</td>
-            <td><span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span></td>
+            <td>{{ status_pill(finding) }}</td>
             <td>
               {%- if finding.total_reward is not none -%}
-                <span class="bounty-cell">{{ money(finding.total_reward, finding.currency) }}{{ paid_badge(finding) }}</span>
-              {%- else -%}
-                <span class="muted">—</span>
+                <span class="bounty-cell">{{ money(finding.total_reward, finding.currency) }}{{ paid_badge(finding, only_unpaid=true) }}</span>
               {%- endif -%}
             </td>
-            <td class="mono-cell">{{ finding.updated_at.strftime("%Y-%m-%d") }}</td>
+            <td class="date-cell"><time datetime="{{ finding.updated_at.isoformat() }}">{{ finding.updated_at|short_day }}</time></td>
           </tr>
         {% endfor %}
       </tbody>
@@ -92,4 +89,51 @@
       {% endfor %}
     </div>
   </section>
+{%- endmacro %}
+
+{# Where a submission stands. A draft has not been sent, whatever its status field says. #}
+{% macro status_pill(finding) -%}
+  {%- if finding.knowledge.is_draft -%}
+    <span class="status is-draft">{{ tr.draft_status }}</span>
+  {%- else -%}
+    <span class="status {{ finding.status }}{{ ' outcome-' ~ finding.outcome if finding.outcome }}">{{ humanize(finding.status) }}{% if finding.outcome %} · {{ humanize(finding.outcome) }}{% endif %}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{# The heading of a panel that lists vuln_row rows: its name, a count or link, and the column
+   captions on the same line, so the rows start right below. #}
+{% macro vuln_list_head(title, count=none, link="") -%}
+  <div class="panel-head vuln-list-head">
+    <h2 class="section-label">{{ title }}{% if count is not none %} <b>{{ count }}</b>{% endif %}
+      {%- if link %} <a href="{{ link }}">{{ tr.view_all }}</a>{% endif %}</h2>
+    <span aria-hidden="true">{{ tr.severity }}</span>
+    <span aria-hidden="true">{{ tr.status }}</span>
+    <span aria-hidden="true">{{ tr.bounty }}</span>
+  </div>
+{%- endmacro %}
+
+{# One submission in a list: title, then "#ID · program · Submitted date"; then severity,
+   status and bounty, which keep their place on every row. ``finding`` may be none for a
+   report no program has. The bounty cell holds an amount, "Unpaid" when an accepted report has none recorded,
+   or nothing when no bounty is due. #}
+{% macro vuln_row(href, title, report_id, program_name, submitted_at, severity, finding) -%}
+  <a class="vuln-row" href="{{ href }}">
+    <span class="vuln-row-main">
+      <strong title="{{ title }}">{{ display_title(title, report_id) }}</strong>
+      <small>
+        {%- if report_id %}<span class="report-ref">#{{ report_id }}</span> · {% endif -%}
+        {{ program_name }}
+        {%- if submitted_at %} · <time datetime="{{ submitted_at }}">{{ tr.submitted_on }} {{ short_date(submitted_at) }}</time>{% endif -%}
+      </small>
+    </span>
+    <span class="vuln-row-sev">{{ severity_label(severity) }}</span>
+    <span class="vuln-row-status">{% if finding %}{{ status_pill(finding) }}{% else %}<span class="status is-draft">{{ tr.draft_status }}</span>{% endif %}</span>
+    <span class="vuln-row-bounty">
+      {%- if finding and finding.total_reward is not none -%}
+        {{ money(finding.total_reward, finding.currency) }}{{ paid_badge(finding, only_unpaid=true) }}
+      {%- elif finding and finding.outcome == "accepted" and not finding.is_paid -%}
+        <span class="paid-badge is-unpaid">{{ tr.unpaid }}</span>
+      {%- endif -%}
+    </span>
+  </a>
 {%- endmacro %}

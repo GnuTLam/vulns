@@ -23,6 +23,7 @@
   --warning: #9a610f;
   --info: #1769d2;
   --ok: #24834b;
+  --processing: #6f5aa8;
   --sev-informational: #0891b2;
   --sev-low: #2563eb;
   --sev-medium: #d69e00;
@@ -78,9 +79,10 @@ html[data-theme="dark"] {
   --warning: #e2a64c;
   --info: #69aefc;
   --ok: #62c78b;
+  --processing: #b4a3f5;
   --sev-informational: #22d3ee;
   --sev-low: #60a5fa;
-  --sev-medium: #facc15;
+  --sev-medium: #d4a72c;
   --sev-high: #fb923c;
   --sev-critical: #fb7185;
   --code-bg: #12171d;
@@ -912,6 +914,9 @@ kbd {
 .bar-row.sev-informational .bar i {
   background: var(--sev-informational);
 }
+.bar-row.status-draft .bar i {
+  background: var(--faint);
+}
 .bar-row.status-submitted .bar i {
   background: var(--info);
 }
@@ -1295,7 +1300,11 @@ td > a:not(.strong-link):hover {
   color: var(--info);
 }
 .status.processing {
-  color: #6f5aa8;
+  color: var(--processing);
+}
+.status.is-draft {
+  color: var(--muted);
+  border-style: dashed;
 }
 .status.done {
   color: var(--ok);
@@ -1307,7 +1316,7 @@ td > a:not(.strong-link):hover {
 }
 .status.done.outcome-duplicate,
 .status.done.outcome-informative {
-  color: var(--faint);
+  color: var(--muted);
 }
 /* Record view */
 .facts {
@@ -3332,121 +3341,30 @@ body.palette-open {
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
-@media (max-width: 1180px) {
-  .dashboard-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .dashboard-metrics > a:nth-child(3n + 1) {
-    border-left: 0;
-  }
-  .dashboard-metrics > a:nth-child(n + 4) {
-    border-top: 1px solid var(--line);
-  }
-}
+/* The figures stay on one row at every width: short labels, smaller numbers on a phone. */
 @media (max-width: 600px) {
+  /* Four figures fit a phone; the program count is one tap away in the menu. */
   .dashboard-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
   }
-  .dashboard-metrics > a:nth-child(odd) {
-    border-left: 0;
+  .dashboard-metrics > [data-dashboard-metric="programs"] {
+    display: none;
   }
-  .dashboard-metrics > a:nth-child(even) {
-    border-left: 1px solid var(--line);
+  .dashboard-metrics > a {
+    padding: 9px 10px;
   }
-  .dashboard-metrics > a:nth-child(n + 3) {
-    border-top: 1px solid var(--line);
+  .dashboard-metrics span {
+    font-size: 11.5px;
+  }
+  .dashboard-metrics strong {
+    margin-top: 2px;
+    font-size: 18px;
   }
 }
 .queue-panel {
   margin-bottom: 16px;
-}
-.queue {
-  display: grid;
-}
-.queue-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px 48px;
-  gap: 12px;
-  align-items: center;
-  min-height: 46px;
-  padding: 8px 16px;
-  border-top: 1px solid var(--line);
-  color: var(--text);
-}
-.queue-row:first-child {
-  border-top: 0;
-}
-.queue-row:hover {
-  background: var(--surface-alt);
-}
-.queue-age {
-  justify-self: end;
-  color: var(--muted);
-  font-size: 12.5px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.queue-age.is-empty {
-  color: var(--faint);
-}
-.queue-age.stale {
-  color: var(--warning);
-  font-weight: 600;
-}
-.queue-main {
-  min-width: 0;
-  display: grid;
-  gap: 1px;
-}
-.queue-main strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13.5px;
-  font-weight: 500;
-}
-.queue-row:hover .queue-main strong {
-  color: var(--accent);
-}
-.queue-main small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--faint);
-  font-size: 11.5px;
-}
-.queue-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 12px 16px 4px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-.queue-group:first-child {
-  border-top: 0;
-}
-.queue-group b {
-  color: var(--faint);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.queue-group a {
-  margin-left: auto;
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
-  color: var(--link);
-  font-weight: 500;
-}
-.queue-group a:hover {
-  text-decoration: underline;
-}
-.queue-group + .queue-row {
-  border-top: 0;
 }
 .home-lower {
   align-items: start;
@@ -3482,65 +3400,6 @@ body.palette-open {
 }
 .onboarding-alt:hover {
   text-decoration: underline;
-}
-.recent-list {
-  display: grid;
-}
-.recent-row {
-  min-width: 0;
-  min-height: 62px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 24px auto;
-  gap: 12px;
-  align-items: center;
-  padding: 9px 16px;
-  border-bottom: 1px solid var(--line);
-}
-.recent-row:last-child {
-  border-bottom: 0;
-}
-.recent-row:hover {
-  background: var(--surface-alt);
-}
-.recent-main {
-  min-width: 0;
-}
-.recent-main strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-}
-.recent-main small {
-  display: block;
-  margin-top: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--faint);
-  font-size: 11.5px;
-}
-.recent-row > .severity {
-  justify-self: center;
-}
-.recent-row > .status {
-  justify-self: end;
-}
-@media (max-width: 560px) {
-  .recent-row {
-    grid-template-columns: minmax(0, 1fr) 24px auto;
-    gap: 9px;
-    padding: 9px 12px;
-  }
-  .recent-row > .severity {
-    width: 24px;
-    height: 30px;
-  }
-  .recent-row > .status {
-    padding-left: 7px;
-    padding-right: 7px;
-  }
 }
 .ledger {
   display: grid;
@@ -3924,37 +3783,6 @@ body.drawer-open {
   .structured-form .form-actions .button {
     flex: 0 1 auto;
   }
-  .queue-row {
-    grid-template-columns: minmax(0, 1fr) 24px auto;
-    gap: 1px 9px;
-    align-items: center;
-    padding: 9px 12px;
-  }
-  .queue-main {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .queue-main strong {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    white-space: normal;
-    line-height: 1.35;
-  }
-  .queue-row > .severity {
-    grid-column: 2;
-    grid-row: 1/3;
-    justify-self: center;
-  }
-  .queue-row > .queue-age {
-    grid-column: 3;
-    grid-row: 1/3;
-    align-self: center;
-  }
-  .queue-group {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
 }
 @media (max-width: 560px) {
   .topbar {
@@ -4301,4 +4129,297 @@ body.drawer-open {
 .update-detail {
   color: var(--muted);
   width: 100%;
+}
+
+
+/* Dashboard: the lists of submissions on the left, money and breakdown on the right. */
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+.home-main {
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+.home-main > .panel + .panel {
+  margin-top: 0;
+}
+/* One row for a submission, the same in every list: the title and where it went, then
+   severity, status and bounty in fixed columns so the eye can run down each. */
+.vuln-list {
+  display: grid;
+}
+.vuln-list,
+.vuln-list-head {
+  --vuln-columns: minmax(0, 1fr) 100px 120px 148px;
+}
+.vuln-row {
+  display: grid;
+  grid-template-columns: var(--vuln-columns);
+  column-gap: 16px;
+  align-items: center;
+  padding: 11px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--text);
+}
+.vuln-list > .vuln-row:first-child {
+  border-top: 0;
+}
+/* The panel heading doubles as the column captions. */
+.panel-head.vuln-list-head {
+  display: grid;
+  grid-template-columns: var(--vuln-columns);
+  column-gap: 16px;
+  min-height: 47px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.vuln-list-head .section-label {
+  overflow: visible;
+  white-space: nowrap;
+}
+.vuln-list-head .section-label b {
+  margin-left: 4px;
+  color: var(--faint);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.vuln-list-head .section-label a {
+  margin-left: 10px;
+  color: var(--link);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.vuln-list-head .section-label a:hover {
+  text-decoration: underline;
+}
+.vuln-list-head span:last-child {
+  text-align: right;
+}
+/* Status reads like severity: a mark and a word, no pill, so a column of the same status is quiet. */
+.vuln-row .status,
+.vulnerability-table .status {
+  --dot: var(--faint);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 22px;
+}
+.vuln-row .status::before,
+.vulnerability-table .status::before {
+  background: var(--dot);
+}
+.vuln-row .status.submitted,
+.vulnerability-table .status.submitted {
+  --dot: var(--info);
+}
+.vuln-row .status.processing,
+.vulnerability-table .status.processing {
+  --dot: var(--processing);
+}
+.vuln-row .status.done,
+.vulnerability-table .status.done {
+  --dot: var(--ok);
+}
+.vuln-row .status.done.outcome-rejected,
+.vulnerability-table .status.done.outcome-rejected,
+.vuln-row .status.done.outcome-out_of_scope,
+.vulnerability-table .status.done.outcome-out_of_scope {
+  --dot: var(--danger);
+}
+.vuln-row .status.done.outcome-duplicate,
+.vulnerability-table .status.done.outcome-duplicate,
+.vuln-row .status.done.outcome-informative,
+.vulnerability-table .status.done.outcome-informative {
+  --dot: var(--faint);
+}
+.vuln-row .status.is-draft::before,
+.vulnerability-table .status.is-draft::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--faint);
+}
+.vuln-row:hover {
+  background: var(--surface-alt);
+}
+.vuln-row-main {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+/* Titles carry the endpoint and parameter, so they get three lines before they are cut. */
+.vuln-row-main strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.vuln-row:hover .vuln-row-main strong {
+  color: var(--accent);
+}
+.vuln-row-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+.report-ref {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.vuln-row-sev,
+.vuln-row-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 22px;
+}
+/* Severity is the louder of the two, as in a HackerOne or YesWeHack report list: a tinted
+   pill with the signal bars. Status is a quiet word whose dot carries the colour. */
+.vuln-row-sev .severity-label,
+.vulnerability-table .severity-label {
+  --sev: var(--muted);
+  height: 22px;
+  margin-left: 0;
+  padding: 0 9px 0 3px;
+  gap: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sev) 13%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.vuln-row-sev .severity-label .severity,
+.vulnerability-table .severity-label .severity {
+  width: 22px;
+  height: 22px;
+  /* Full-strength bars: on the tinted pill a muted bar (Info, Low) would read as a speck. */
+  color: var(--sev) !important;
+}
+.vuln-row-sev .sev-critical,
+.vulnerability-table .sev-critical {
+  --sev: var(--sev-critical);
+}
+.vuln-row-sev .sev-high,
+.vulnerability-table .sev-high {
+  --sev: var(--sev-high);
+}
+.vuln-row-sev .sev-medium,
+.vulnerability-table .sev-medium {
+  --sev: var(--sev-medium);
+}
+.vuln-row-sev .sev-low,
+.vulnerability-table .sev-low {
+  --sev: var(--sev-low);
+}
+.vuln-row-sev .sev-informational,
+.vulnerability-table .sev-informational {
+  --sev: var(--sev-informational);
+}
+.vuln-row-bounty {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.vuln-row-bounty .money {
+  font-weight: 600;
+}
+.date-cell {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A group inside a list: its name and count, nothing more. */
+.list-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-alt);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.vuln-list > .list-group:first-child {
+  border-top: 0;
+}
+.list-group b {
+  color: var(--faint);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.list-group a {
+  margin-left: auto;
+  color: var(--link);
+  font-weight: 500;
+}
+.list-group a:hover {
+  text-decoration: underline;
+}
+/* One column: what needs action, then the money, then the history and the breakdown. */
+@media (max-width: 1180px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-main,
+  .home-side {
+    display: contents;
+  }
+  .home-grid > * > .panel {
+    margin-top: 0;
+  }
+  .home-attention {
+    order: 1;
+  }
+  .home-earnings {
+    order: 2;
+  }
+  .home-recent {
+    order: 3;
+  }
+  .home-breakdown {
+    order: 4;
+  }
+}
+@media (max-width: 760px) {
+  /* The title on its own lines, then severity and status; the bounty sits at the right end of
+     that line, or on a line of its own when they do not fit together. */
+  .vuln-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px 12px;
+    padding: 11px 14px;
+  }
+  .vuln-row-main {
+    flex: 1 0 100%;
+  }
+  .vuln-row-bounty {
+    margin-left: auto;
+  }
+  .vuln-row-bounty:empty {
+    display: none;
+  }
+  .vuln-list-head > span {
+    display: none;
+  }
+  .panel-head.vuln-list-head {
+    display: flex;
+  }
 }

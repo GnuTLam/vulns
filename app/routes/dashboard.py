@@ -21,7 +21,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         "dashboard",
         **snapshot,
         update_info=update_banner(request),
-        max_status=max(snapshot["status_counts"].values(), default=1),
+        max_status=max(snapshot["pipeline_counts"].values(), default=1),
         max_severity=max(snapshot["severity_counts"].values(), default=1),
         saved_filter_queries=dict(SAVED_FILTERS),
         # An empty workspace shows a single getting-started panel.

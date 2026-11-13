@@ -504,12 +504,26 @@ def tool_get_overview(db: Session, _request: Request, _args: dict) -> dict:
             "total": snap["attention_total"],
             "awaiting_reply": {
                 "count": snap["attention_groups"]["awaiting"],
-                "oldest_first": [{**finding_row(f), "days_waiting": f.days_waiting} for f in snap["awaiting"]],
+                "oldest_first": [
+                    {
+                        **finding_row(f),
+                        "days_waiting": f.days_waiting,
+                        "waiting_days": f.reply_wait[0],
+                        "waiting_since": f.reply_wait[1],
+                    }
+                    for f in snap["awaiting"]
+                ],
             },
             "accepted_unpaid": {
                 "count": snap["attention_groups"]["unpaid"],
                 "oldest_first": [
-                    {**finding_row(f), "days_since_triage": f.days_awaiting_reward} for f in snap["unpaid"]
+                    {
+                        **finding_row(f),
+                        "days_since_triage": f.days_awaiting_reward,
+                        "owed_days": f.payment_wait[0],
+                        "owed_since": f.payment_wait[1],
+                    }
+                    for f in snap["unpaid"]
                 ],
             },
             "drafts_to_finish": {

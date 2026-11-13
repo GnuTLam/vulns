@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+from datetime import date
 from pathlib import Path
 
 import bleach
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .i18n import TRANSLATIONS, term
 from .markdown_store import sync_markdown
-from .models import Evidence, Finding, KnowledgeEntry, Program
+from .models import Evidence, Finding, KnowledgeEntry, Program, local_day
 from .security import authenticated, csrf_token
 from .taxonomy import BUG_TYPES, CURRENCIES, CURRENCY_SYMBOLS, DEFAULT_CURRENCY, OUTCOMES, SEVERITIES, STATUSES
 
@@ -70,6 +71,34 @@ def report_edit_url(entry: KnowledgeEntry) -> str:
     return f"{report_url(entry)}/edit" if entry.findings else "/findings/unfiled"
 
 
+def display_title(title: str, report_id: str = "") -> str:
+    """A title without the report ID it starts with, since pages show that ID on its own.
+
+    Hunters often paste titles such as ``3632677 SSRF in …``; ``#3632677`` is then shown once,
+    as a reference, instead of twice.
+    """
+    title = title or ""
+    reference = (report_id or "").strip()
+    if not reference:
+        return title
+    match = re.match(rf"#?{re.escape(reference)}(?!\w)[\s\-–—:·|]*", title)
+    rest = title[match.end() :] if match else ""
+    return rest or title
+
+
+def short_date(value: str) -> str:
+    """``2026-11-13`` as ``Nov 13``, with the year when it is not this one."""
+    try:
+        day = date.fromisoformat((value or "")[:10])
+    except ValueError:
+        return value or ""
+    label = f"{day:%b} {day.day}"
+    return label if day.year == date.today().year else f"{label}, {day.year}"
+
+
+templates.env.filters["short_day"] = lambda moment: short_date(local_day(moment))
+templates.env.globals["display_title"] = display_title
+templates.env.globals["short_date"] = short_date
 templates.env.globals["report_url"] = report_url
 templates.env.globals["report_edit_url"] = report_edit_url
 
