@@ -16,7 +16,9 @@ ARG APP_VERSION=dev
 ENV VULNS_APP_VERSION=${APP_VERSION}
 
 COPY app ./app
-RUN mkdir -p /data && chown -R vulns:vulns /app /data
+# The file is what the app reads; the variable above can be inherited stale by a recreated container.
+RUN printf '%s\n' "$APP_VERSION" > app/BUILD_VERSION \
+    && mkdir -p /data && chown -R vulns:vulns /app /data
 
 USER vulns
 EXPOSE 8000

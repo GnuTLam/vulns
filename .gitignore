@@ -20,6 +20,9 @@ backups/
 *.pem
 *.key
 
+# Written by the image build
+app/BUILD_VERSION
+
 # Local agent and launcher settings (may hold dev passwords)
 .claude/
 

@@ -50,7 +50,7 @@ All settings are environment variables, read from `.env` by Docker Compose.
 | `VULNS_AGENT_TOKEN` | empty | Bearer token for the MCP endpoint (32+ characters); empty disables it |
 | `VULNS_UPDATER_TOKEN` | empty | Shared secret for one-click updates (32+ characters); empty disables the Update button |
 | `VULNS_UPDATE_CHECK` | `true` | Check GitHub for a newer release and offer the update |
-| `VULNS_VERSION` | `latest` | Image tag to run; the updater sets this when you update in-app |
+| `VULNS_VERSION` | `latest` | Image tag Docker Compose runs; an in-app update replaces the running container without changing it |
 | `VULNS_PORT` | `8000` | Host port published by Docker Compose |
 
 ## Local development

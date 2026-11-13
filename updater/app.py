@@ -99,14 +99,20 @@ def set_phase(phase: str, **fields) -> None:
     log("phase", phase=phase, **fields)
 
 
-def container_recreate_plan(attrs: dict) -> dict:
+def container_recreate_plan(attrs: dict, image_env: list[str] | None = None) -> dict:
     """The pieces of a container's configuration that must survive a swap.
 
     Returns the low-level Docker API arguments (``create_container`` plus a matching
     ``create_host_config``) so the replacement container is configured exactly like the
     one it replaces — volumes, port bindings, environment, labels, healthcheck.
+
+    A container's ``Env`` is its image's ``ENV`` merged with what compose set. ``image_env``
+    is the old image's ``ENV``: those entries are left out so the new image's own values
+    apply. Carrying them over would pin, for example, ``VULNS_APP_VERSION`` of the old
+    release, and the updated app would keep reporting the old version.
     """
     config = attrs["Config"]
+    inherited = set(image_env or ())
     host = attrs["HostConfig"]
     binds = [
         f"{mount['Source']}:{mount['Destination']}" + ("" if mount.get("RW", True) else ":ro")
@@ -122,7 +128,7 @@ def container_recreate_plan(attrs: dict) -> dict:
     restart = host.get("RestartPolicy") or {}
     healthcheck = {key: value for key, value in (config.get("Healthcheck") or {}).items() if value is not None}
     return {
-        "environment": config.get("Env") or [],
+        "environment": [entry for entry in config.get("Env") or [] if entry not in inherited],
         "labels": config.get("Labels") or {},
         "hostname": config.get("Hostname") or None,
         "healthcheck": healthcheck or None,
@@ -135,13 +141,21 @@ def container_recreate_plan(attrs: dict) -> dict:
     }
 
 
-def recreate_container(client, attrs: dict, image: str, name: str | None = CONTAINER_NAME):
+def image_env(container) -> list[str]:
+    """The ``ENV`` of the image a container was created from; empty when it cannot be read."""
+    try:
+        return container.image.attrs["Config"].get("Env") or []
+    except (KeyError, AttributeError, docker.errors.DockerException):
+        return []
+
+
+def recreate_container(client, attrs: dict, image: str, name: str | None = CONTAINER_NAME, old_image_env=None):
     """Create (not start) a replacement container with the captured configuration.
 
     ``name`` may be ``None``: the replacement is then created under an automatic name
     and takes ``CONTAINER_NAME`` only after the old container releases it.
     """
-    plan = container_recreate_plan(attrs)
+    plan = container_recreate_plan(attrs, old_image_env)
     host_config = client.api.create_host_config(
         binds=plan["binds"],
         port_bindings=plan["port_bindings"],
@@ -234,7 +248,7 @@ def run_update(image: str, version: str) -> None:
             pass
         # Create the replacement (not started) under a temporary name while the old
         # container still serves; rename, stop and start give the shortest possible gap.
-        replacement = recreate_container(client, current.attrs, image, name=None)
+        replacement = recreate_container(client, current.attrs, image, name=None, old_image_env=image_env(current))
         current.rename(PREVIOUS_NAME)
         replacement_container = client.containers.get(replacement["Id"])
         replacement_container.rename(CONTAINER_NAME)
@@ -295,7 +309,9 @@ def run_rollback(client, reason: str, backup_name: str = "") -> None:
         elif current is not None and state.get("from_image"):
             # Explicit rollback after a successful update: recreate from the old image.
             client.images.pull(state["from_image"])
-            replacement = recreate_container(client, current.attrs, state["from_image"])
+            replacement = recreate_container(
+                client, current.attrs, state["from_image"], old_image_env=image_env(current)
+            )
             current.stop(timeout=STOP_TIMEOUT)
             current.remove(force=True)
             client.api.start(replacement["Id"])

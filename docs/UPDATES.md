@@ -27,6 +27,22 @@ vulns (the app)                    vulns-updater (the sidecar)
   never on a published port, and requires `VULNS_UPDATER_TOKEN` on every call. It only
   pulls images under the `ghcr.io/gnutlam/vulns:` prefix.
 
+## What an in-app update replaces
+
+Only the app container. The new container keeps the old one's volumes, ports, labels and
+the environment set in compose, but not the environment its old image defined: the new
+image brings its own (`VULNS_APP_VERSION` among it). The release version is also written
+into the image as `app/BUILD_VERSION`, which the app reads first, so a container can never
+report an older version than the code it runs.
+
+The updater sidecar is not replaced by an in-app update. To update it as well, and to
+bring Compose back in line with the running release:
+
+```bash
+docker compose pull
+docker compose up -d --force-recreate
+```
+
 ## Database safety
 
 The image swap cannot touch your data: everything lives in the `vulns_data` volume
