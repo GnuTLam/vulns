@@ -73,11 +73,11 @@ def _open_programs(db: Session) -> list[Program]:
     return db.query(Program).filter(Program.archived.is_(False)).order_by(Program.name).all()
 
 
-def _bounty_link(program_id: str, year: int | None, currency: str):
+def _bounty_link(program_id: str, year: int | None):
     """Builds links to the bounty tab that keep the filters in force, changing only what is passed."""
 
     def link(**changes: object) -> str:
-        values = {"year": "all" if year is None else year, "currency": currency, "program_id": program_id, **changes}
+        values = {"year": "all" if year is None else year, "program_id": program_id, **changes}
         return "/findings?" + urlencode({"tab": "bounty", **{key: value for key, value in values.items() if value}})
 
     return link
@@ -92,15 +92,14 @@ def findings_list(
     severity: str = "",
     program_id: str = "",
     year: str = "",
-    currency: str = "",
     db: Session = Depends(get_db),
 ):
     """The vulnerability list, or with ``tab=bounty`` the bounty statistics and rewards ledger."""
     programs = db.query(Program).order_by(Program.name).all()
     common = {"programs": programs, "selected_program": program_id, "unfiled_count": unfiled_count(db)}
     if tab == "bounty":
-        report = earnings_report(db, year.strip(), currency.strip().upper(), program_id)
-        link = _bounty_link(program_id, report["selected_year"], report["selected_currency"])
+        report = earnings_report(db, year.strip(), program_id)
+        link = _bounty_link(program_id, report["selected_year"])
         return render(request, "findings.html", "findings", tab="bounty", bounty_link=link, **common, **report)
 
     parsed = parse_query(compose_query(q, severity=severity if severity in SEVERITIES else "", program_id=program_id))

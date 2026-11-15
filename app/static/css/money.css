@@ -1,6 +1,5 @@
-/* The Bounty tab: a ledger. Totals per currency (Received + Owed = Total), what is still
-   owed, the awards by month, then the full ledger and the breakdowns. Layout only; marks and
-   tables come from core.css. */
+/* The Bounty tab: every currency side by side (never added together), what is still owed,
+   the ledger by month, and where it paid. Marks and tables come from core.css. */
 
 .bounty-tab {
   display: grid;
@@ -17,443 +16,310 @@
 }
 .bounty-program select {
   width: auto;
-  min-width: 190px;
+  min-width: 200px;
   max-width: 100%;
 }
 
-/* ---------------------------------------------------------------- Totals */
-/* The equation reads left to right: the operator sits before each figure. */
-.sum-table th,
-.sum-table td {
-  padding-block: 12px;
+/* ---------------------------------------------------------------- Currency board */
+/* One column per currency, ruled apart like the columns of a ledger. */
+.currency-board {
+  display: grid;
+  /* As many equal columns as there are currencies, so the board is never half empty. */
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
 }
-.sum-table td {
-  font-size: 15px;
+.currency-col {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px 18px 18px;
+  border-left: 1px solid var(--rule);
 }
-.sum-table tbody tr:last-child td {
-  border-bottom: 0;
+.currency-col:first-child {
+  border-left: 0;
 }
-.sum-currency {
-  min-width: 200px;
-  font-size: 13px !important;
-}
-.sum-currency > a,
-.sum-currency > span {
-  font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-.sum-currency > a {
-  color: var(--accent);
-  text-underline-offset: 3px;
-}
-.sum-currency > a:hover {
-  text-decoration: underline;
-}
-.sum-table tbody tr {
-  position: relative;
-}
-/* The whole row is the link: the currency cell's anchor stretches over it. */
-.sum-currency > a::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-.sum-table tbody tr:has(.sum-currency > a):hover td {
-  background: var(--sheet-2);
-}
-.sum-charting {
-  margin-left: 8px;
-  color: var(--ink-3);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-style: normal;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.sum-table tr.is-current td:first-child {
-  box-shadow: inset 2px 0 0 var(--ink);
-}
-.sum-table tr.is-current .sum-currency > a {
+.currency-code {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
   color: var(--ink);
-}
-.sum-received {
-  color: var(--ok);
-}
-.sum-owed {
-  color: var(--owed);
-}
-.sum-owed.is-zero,
-.is-zero {
-  color: var(--ink-3);
-}
-.sum-total {
-  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.06em;
 }
-.sum-owed::before,
-.sum-total::before {
-  content: attr(data-op);
-  margin-right: 10px;
+.currency-code span {
   color: var(--ink-3);
   font-weight: 400;
+  letter-spacing: 0;
 }
-.sum-note,
-.sum-hint {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  margin: 0;
-  padding: 10px 16px;
+.currency-total {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.currency-split {
+  display: grid;
+  gap: 3px;
+  margin: 4px 0 0;
+  padding-top: 8px;
   border-top: 1px solid var(--rule);
+}
+.currency-split div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.currency-split dt,
+.currency-split dd {
+  margin: 0;
   color: var(--ink-2);
   font-size: 12.5px;
 }
-.sum-hint {
-  color: var(--ink-3);
-  font-size: 12px;
+.currency-split .is-owed dt,
+.currency-split .is-owed dd {
+  color: var(--owed);
+  font-weight: 500;
 }
-.sum-note + .sum-hint {
-  border-top: 0;
-  padding-top: 0;
+.currency-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  grid-column: 1 / -1;
+  padding: 10px 18px;
+  border-top: 1px solid var(--rule);
+  background: var(--sheet-2);
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.currency-board > .empty-compact {
+  grid-column: 1 / -1;
 }
 
-/* ---------------------------------------------------------------- Still owed, ledger */
+/* ---------------------------------------------------------------- Money rows */
+/* Still owed and the ledger share one row: [date] report, amount, then a flag or action. */
+.money-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.money-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, auto) 104px;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--rule);
+}
+.money-list > .money-row:first-child {
+  border-top: 0;
+}
+.ledger-month .money-row {
+  grid-template-columns: 64px minmax(0, 1fr) minmax(130px, auto) 104px;
+}
+.money-row:hover {
+  background: var(--sheet-2);
+}
+.money-row-date {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.money-row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.money-row-main .strong-link {
+  overflow: hidden;
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.money-row-main small {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.money-row-main small a {
+  color: var(--ink-2);
+}
+.money-row-main small a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.money-row-amount {
+  font-size: 13.5px;
+  text-align: right;
+  white-space: nowrap;
+}
+.money-row-amount .money .num {
+  font-weight: 600;
+}
+.money-row-action,
+.money-row-flag {
+  display: flex;
+  justify-content: flex-end;
+}
+.owed-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px 8px;
+}
+.owed-meta i {
+  color: var(--rule-strong);
+  font-style: normal;
+}
+.owed-meta .money .num {
+  color: var(--owed);
+  font-weight: 600;
+}
 .count {
   margin-left: 6px;
   color: var(--ink-3);
   font-weight: 400;
 }
-.owed-meta {
-  display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 2px 6px;
-  color: var(--owed);
+#unpaid .panel-note {
+  padding-bottom: 8px;
 }
-.owed-meta .money .num {
-  color: var(--owed);
-}
-.owed-scope {
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--rule);
-  color: var(--ink-3);
-}
-.cell-report .strong-link {
-  display: block;
-}
-.cell-report small {
-  color: var(--ink-3);
-}
-.cell-sev,
-.cell-date {
-  white-space: nowrap;
-}
-.no-amount {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.no-amount small {
-  display: inline;
-  margin: 0;
-  color: var(--ink-3);
-  font-family: var(--font);
-}
-.cell-action {
-  text-align: right;
-  white-space: nowrap;
-}
-.cell-action form {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-.cell-status {
-  white-space: nowrap;
-}
-.cell-action .text-action {
-  font-size: 12.5px;
-}
-.owed-table .cell-action,
-.ledger-table .cell-action {
-  width: 1%;
-}
-.ledger-table tfoot td {
+
+/* ---------------------------------------------------------------- Ledger months */
+.ledger-month + .ledger-month {
   border-top: 1px solid var(--rule-strong);
-  border-bottom: 0;
-  background: var(--sheet-2);
-  color: var(--ink-3);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
-.ledger-table tfoot .amount-cell {
+.ledger-month-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet-2);
   color: var(--ink);
   font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
 }
-.ledger-table tfoot .amount-cell .num {
-  font-weight: 600;
-}
-.ledger-table tbody tr:hover td,
-.owed-table tbody tr:hover td {
-  background: transparent;
-}
-
-/* ---------------------------------------------------------------- Awards by month */
-/* One row per period: its name, a bar, the exact amount. The owed part is hatched so the
-   split does not rest on colour alone. */
-.flow {
-  display: grid;
-  padding: 6px 16px 8px;
-}
-.flow-year {
-  padding: 10px 0 4px;
-  color: var(--ink-3);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-}
-.flow-year:not(:first-child) {
-  margin-top: 4px;
-  border-top: 1px solid var(--rule);
-}
-.flow-row {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) minmax(88px, auto) 104px;
-  align-items: center;
-  gap: 12px;
-  min-height: 28px;
-}
-.flow-axis {
-  color: var(--ink-2);
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.flow-track {
-  display: flex;
-  align-items: center;
-  height: 14px;
-  min-width: 0;
-}
-.flow-bar {
-  display: flex;
-  height: 100%;
-  min-width: 3px;
-  overflow: hidden;
-  border-radius: 1px;
-}
-.flow-bar i,
-.flow-legend i {
-  display: block;
-  min-width: 1px;
-}
-.flow-bar .is-paid,
-.flow-legend .is-paid {
-  background: var(--ok);
-}
-.flow-bar .is-unpaid,
-.flow-legend .is-unpaid {
-  background: repeating-linear-gradient(135deg, var(--owed) 0 3px, var(--owed-soft) 3px 5px);
-  box-shadow: inset 0 0 0 1px var(--owed);
-}
-.flow-amount {
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 12.5px;
-  font-weight: 500;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.flow-row.is-empty .flow-amount,
-.flow-row.is-empty .flow-axis {
-  color: var(--ink-3);
+.ledger-month-sums {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 18px;
   font-weight: 400;
 }
-.flow-owed {
+
+/* ---------------------------------------------------------------- By program */
+.program-money td small.owed-part {
+  display: block;
+  margin-top: 1px;
   color: var(--owed);
   font-family: var(--mono);
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-.flow-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  padding: 10px 16px;
-  border-top: 1px solid var(--rule);
-  background: var(--sheet-2);
-  color: var(--ink-3);
-  font-size: 12px;
-}
-.flow-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 16px;
-}
-.flow-legend > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.flow-legend i {
-  width: 12px;
-  height: 8px;
-}
-.flow-median b,
-.flow-sum b {
-  color: var(--ink);
-  font-family: var(--mono);
-  font-weight: 500;
-}
-.flow-sum {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--mono);
   font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
-.flow-sum .money small {
-  font-size: 10.5px;
-}
-
-/* ---------------------------------------------------------------- Breakdowns */
-.program-table td .strong-link {
-  font-weight: 600;
-}
-.severity-bars .bar-row {
-  grid-template-columns: minmax(96px, 9.5rem) minmax(0, 1fr) minmax(88px, auto);
-}
-.severity-bars .bar-row b {
-  font-variant-numeric: tabular-nums;
+.program-money .nil {
+  color: var(--ink-3);
 }
 
 /* ---------------------------------------------------------------- Narrow screens */
 @media (max-width: 760px) {
-  .bounty-tab {
-    gap: 16px;
+  .bounty-filters .period-tabs {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
   }
   .bounty-program,
   .bounty-program select {
     width: 100%;
   }
-  /* The owed figures in a head can be long: let the head wrap instead of cutting the label. */
-  .bounty-tab .panel-head {
-    flex-wrap: wrap;
-    row-gap: 2px;
+  .currency-board {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .bounty-tab .panel-head .section-label {
-    overflow: visible;
-  }
-  .owed-meta {
-    flex: 1 0 100%;
-    justify-content: flex-start;
-  }
-  .sum-table td {
-    font-size: 13.5px;
-  }
-  .sum-table th,
-  .sum-table td {
-    padding-inline: 10px;
-  }
-  .sum-currency {
-    min-width: 0;
-  }
-  .sum-currency small {
-    display: none;
-  }
-  .sum-owed::before,
-  .sum-total::before {
-    margin-right: 5px;
-  }
-  .sum-note,
-  .sum-hint {
-    padding-inline: 12px;
-  }
-  .flow {
-    padding-inline: 12px;
-  }
-  .flow-row {
-    grid-template-columns: 30px minmax(0, 1fr) auto;
-    gap: 8px;
-  }
-  .flow-owed {
-    display: none;
-  }
-  .flow-foot {
-    padding-inline: 12px;
-  }
-  .col-reports {
-    display: none;
-  }
-
-  /* A row of the owed list and the ledger becomes a small entry: title, then its marks. */
-  .stack-table,
-  .stack-table tbody,
-  .stack-table tfoot {
-    display: block;
-  }
-  .stack-table thead {
-    display: none;
-  }
-  .stack-table tr {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 12px;
+  .currency-col {
     padding: 12px;
-    border-bottom: 1px solid var(--rule);
+    border-top: 1px solid var(--rule);
+    border-left: 0;
   }
-  .stack-table tbody tr:last-child {
-    border-bottom: 0;
+  .currency-col:first-child {
+    border-top: 0;
   }
-  .stack-table td {
-    padding: 0;
-    border: 0;
+  .currency-total {
+    font-size: 22px;
   }
-  .stack-table .cell-report {
-    flex: 1 0 100%;
-    order: -2;
+  .currency-note {
+    padding: 10px 12px;
   }
-  .stack-table .cell-date {
-    order: -1;
+  /* A row wraps: the report on top, then the amount and its flag or action on one line. */
+  .money-row,
+  .ledger-month .money-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 11px 12px;
   }
-  .stack-table .cell-amount {
-    margin-left: auto;
+  .money-row-main,
+  .money-row-date {
+    grid-column: 1 / -1;
   }
-  .stack-table .cell-action {
+  .money-row-main .strong-link {
+    white-space: normal;
+  }
+  .money-row-amount {
     text-align: left;
   }
-  .stack-table .cell-action:last-child {
-    margin-left: 0;
+  .ledger-month-head {
+    padding: 9px 12px;
   }
-  .ledger-table tfoot tr {
-    background: var(--sheet-2);
-    border-top: 1px solid var(--rule-strong);
-    border-bottom: 0;
+  /* By program: one block per program, each currency on its own labelled line. */
+  .program-money,
+  .program-money tbody,
+  .program-money tr,
+  .program-money td {
+    display: block;
   }
-  .ledger-table tfoot td[colspan] {
-    flex: 1;
-    padding: 0;
+  .program-money thead,
+  .program-money td.is-empty[data-label] {
+    display: none;
   }
-  .ledger-table tfoot td {
+  .program-money tr {
+    padding: 10px 12px;
+    border-top: 1px solid var(--rule);
+  }
+  .program-money tr:first-child {
+    border-top: 0;
+  }
+  .program-money td {
+    padding: 2px 0;
     border: 0;
-    background: transparent;
+    text-align: left;
   }
-  .severity-bars .bar-row {
-    grid-template-columns: minmax(80px, 7.5rem) minmax(0, 1fr) auto;
+  .program-money td[data-label] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+  }
+  .program-money td[data-label]::before {
+    content: attr(data-label);
+    min-width: 72px;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .program-money td small.owed-part {
+    display: inline;
+  }
+  .program-money tbody tr:hover td {
+    background: none;
   }
 }
