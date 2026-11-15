@@ -613,14 +613,42 @@ def knowledge_rows(
     return rows[:limit], len(rows), ranked
 
 
+def _strip_markdown(text: str) -> str:
+    """Drop heading hashes and bold markers so a snippet of a report reads as text."""
+    text = re.sub(r"(^|\s)#{1,6}\s+", r"\1", text)
+    return re.sub(r"\*\*|__", "", text).strip()
+
+
 def _display_snippet(raw_snippet: str, title: str, fallback: str) -> Markup:
     """Use the summary when the best snippet only repeats the title."""
+    raw_snippet = _strip_markdown(raw_snippet)
     if not raw_snippet:
         return escape(fallback[:180])
     plain = raw_snippet.replace(HIGHLIGHT_OPEN, "").replace(HIGHLIGHT_CLOSE, "").strip().strip("…").strip()
-    if plain and title and plain.casefold() in title.casefold() and fallback.strip():
+    # Nothing beyond the title: the summary, or no snippet at all rather than the title twice.
+    if plain and title and plain.casefold() in title.casefold():
         return escape(fallback[:180])
+    # A snippet from the top of a report opens with its title, which the hit already shows.
+    if title and plain.casefold().startswith(title.casefold()) and len(plain) > len(title):
+        raw_snippet = _skip_visible(raw_snippet, len(title)).lstrip(" -–—:·")
     return highlight(raw_snippet)
+
+
+def _skip_visible(text: str, count: int) -> str:
+    """``text`` after its first ``count`` visible characters; highlight markers are not counted
+    and a marker left open is reopened so highlighting stays balanced."""
+    seen, index, open_mark = 0, 0, False
+    while index < len(text) and seen < count:
+        char = text[index]
+        if char == HIGHLIGHT_OPEN:
+            open_mark = True
+        elif char == HIGHLIGHT_CLOSE:
+            open_mark = False
+        else:
+            seen += 1
+        index += 1
+    rest = text[index:]
+    return HIGHLIGHT_OPEN + rest if open_mark else rest
 
 
 def _search_knowledge(session: Session, parsed: ParsedQuery, limit: int, unfiled_only: bool) -> tuple[list[dict], int]:
@@ -736,6 +764,7 @@ def _search_findings(session: Session, parsed: ParsedQuery, limit: int) -> tuple
                 "status": finding.status,
                 "outcome": finding.outcome,
                 "report_id": finding.report_id,
+                "is_draft": bool(finding.knowledge and finding.knowledge.is_draft),
                 "payout": finding.payout,
                 "updated_at": finding.updated_at,
                 "snippet": _display_snippet(

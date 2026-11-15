@@ -2,13 +2,13 @@
 {% block title %}{{ tr.export_for_ai }}{% endblock %}
 {% block content %}
   <div class="toolbar">
-    <div class="crumbs"><strong>{{ tr.export_for_ai }}</strong></div>
+    <div><h1>{{ tr.export_for_ai }}</h1><p>{{ tr.export_intro }}</p></div>
     <div class="toolbar-actions">
       <a class="button" href="/knowledge/export.zip">{{ tr.download_markdown_zip }}</a>
       <a class="button primary" href="/knowledge/export.json">{{ tr.download_json }}</a>
     </div>
   </div>
-  <div class="workspace">
+  <div class="workspace export-page">
     <div class="export-stats">
       <span><b>{{ included|length }}</b> {{ tr.ai_included|lower }}</span>
       <span><b>{{ excluded|length }}</b> {{ tr.ai_excluded|lower }}</span>
@@ -20,7 +20,6 @@
           <p class="section-label">{{ tr.ai_included }}</p>
           <span class="meta">{{ included|length }}</span>
         </div>
-        <p class="panel-note">{{ tr.export_intro }}</p>
         {% if included %}
           <div class="linked-list">
             {% for entry in included %}

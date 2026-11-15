@@ -3,7 +3,7 @@
 {% block title %}{{ tr.programs }}{% endblock %}
 {% block content %}
   <div class="toolbar">
-    <div class="crumbs"><strong>{{ tr.programs }}</strong><code>{{ programs|length }}</code></div>
+    <h1 class="page-title">{{ tr.programs }} <span class="page-count">{{ programs|length }}</span></h1>
     <div class="toolbar-actions">
       <a class="button primary" href="/programs/new">{{ tr.new_program }}</a>
     </div>
@@ -12,37 +12,47 @@
     <section class="panel">
       {% if programs %}
         <div class="table-wrap">
-          <table class="registry-table">
+          <table class="registry-table program-table">
             <thead>
               <tr>
-                <th class="num-head">#</th>
                 <th>{{ tr.name }}</th>
-                <th>{{ tr.platform }}</th>
-                <th>{{ tr.handle }}</th>
-                <th>{{ tr.findings }}</th>
-                <th>{{ tr.open }}</th>
-                <th>{{ tr.accepted }}</th>
-                <th>{{ tr.earned }}</th>
-                <th>{{ tr.updated }}</th>
+                <th class="col-wide">{{ tr.platform }}</th>
+                <th class="num-head">{{ tr.reports }}</th>
+                <th class="num-head col-wide">{{ tr.open }}</th>
+                <th class="num-head col-wide">{{ tr.accepted }}</th>
+                <th class="amount-head">{{ tr.received }}</th>
+                <th class="amount-head">{{ tr.owed }}</th>
+                <th class="col-wide">{{ tr.updated }}</th>
               </tr>
             </thead>
             <tbody>
               {% for program in programs %}
+                {% set last = (program.findings|map(attribute="updated_at")|list + [program.updated_at])|max %}
                 <tr class="{{ 'is-archived' if program.archived }}" data-row-href="/programs/{{ program.id }}">
-                  <td class="num-cell">{{ loop.index }}</td>
                   <td>
                     <a class="strong-link" href="/programs/{{ program.id }}">{{ program.name }}</a>
-                    {%- if program.archived %}<small>{{ tr.archived }}</small>{% endif %}
+                    <small>
+                      <span class="plat-inline">{{ program.platform or 'Independent' }}{% if program.archived or program.handle %} · {% endif %}</span>
+                      {%- if program.archived %}{{ tr.archived }}{% endif -%}
+                      {%- if program.archived and program.handle %} · {% endif -%}
+                      {%- if program.handle %}<span class="mono">{{ program.handle }}</span>{% endif -%}
+                      {%- if counts[program.id].open %}<span class="open-inline"> · {{ counts[program.id].open }} {{ tr.open|lower }}</span>{% endif -%}
+                    </small>
                   </td>
-                  <td>{{ program.platform or 'Independent' }}</td>
-                  <td class="mono-cell">{{ program.handle or '—' }}</td>
-                  <td><strong>{{ counts[program.id].total }}</strong></td>
-                  <td><strong>{{ counts[program.id].open }}</strong></td>
-                  <td><strong>{{ counts[program.id].accepted }}</strong></td>
-                  <td>
-                    {%- for row in earned[program.id] %}<span class="earned-line">{{ ui.money(row.total, row.currency) }}</span>{% else %}<span class="muted">—</span>{% endfor -%}
+                  <td class="platform-cell col-wide">{{ program.platform or 'Independent' }}</td>
+                  <td class="num-cell">{{ counts[program.id].total }}</td>
+                  <td class="num-cell col-wide">{{ counts[program.id].open or '·' }}</td>
+                  <td class="num-cell col-wide">{{ counts[program.id].accepted or '·' }}</td>
+                  <td class="amount-cell">
+                    {%- for row in earned[program.id] if row.paid %}<span class="amount-line">{{ ui.money(row.paid, row.currency) }}</span>{% else %}<span class="nil">—</span>{% endfor -%}
                   </td>
-                  <td class="mono-cell">{{ program.updated_at.strftime("%Y-%m-%d") }}</td>
+                  <td class="amount-cell">
+                    {%- set due = owed[program.id] -%}
+                    {%- for row in due.rows %}<span class="amount-line owed">{{ ui.money(row.amount, row.currency) }}</span>{% endfor -%}
+                    {%- if due.unrecorded %}<span class="amount-line"><span class="paid-badge is-unpaid" title="{{ tr.amount_not_recorded }}">{{ tr.unpaid }}{% if due.unrecorded > 1 %} ×{{ due.unrecorded }}{% endif %}</span></span>{% endif -%}
+                    {%- if not due.count %}<span class="nil">—</span>{% endif -%}
+                  </td>
+                  <td class="date-cell col-wide"><time datetime="{{ last.isoformat() }}">{{ last|short_day }}</time></td>
                 </tr>
               {% endfor %}
             </tbody>

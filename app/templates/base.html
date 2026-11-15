@@ -4,81 +4,73 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#1769d2">
+    <meta name="theme-color" content="#f4f3ee">
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}{{ tr.app_name }}{% endblock %} · VulnS</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/favicon.svg') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}?v={{ asset_hash }}">
+    {% for sheet in stylesheets %}<link rel="stylesheet" href="{{ url_for('static', path='/css/' ~ sheet ~ '.css') }}?v={{ asset_hash }}">
+    {% endfor %}
     <script defer src="{{ url_for('static', path='/app.js') }}?v={{ asset_hash }}"></script>
   </head>
   <body>
     <div class="app-shell {{ 'has-explorer' if explorer_programs is defined }}">
-      <aside class="sidebar" id="sidebar">
-        <a class="brand" href="/">
-          <span class="brand-mark">V</span>
-          <span class="brand-text"><strong>VulnS</strong></span>
+      <header class="masthead">
+        <button class="masthead-button masthead-menu-toggle" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="{{ tr.menu }}">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
+          </svg>
+        </button>
+        <a class="brand" href="/" aria-label="VulnS">
+          <span class="brand-mark" aria-hidden="true"></span><span class="brand-text">VulnS</span>
         </a>
-        <div class="side-search">
-          <form method="get" action="/search">
-            <label>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5 14 14" />
-              </svg>
-              <input type="search" name="q" placeholder="{{ tr.quick_search }}" autocomplete="off" data-palette-open>
-              <kbd>Ctrl K</kbd>
-            </label>
-          </form>
-        </div>
-        <div class="nav-scroll">
-          <nav class="nav-group" aria-label="Primary">
-            <a class="nav-item {{ 'active' if active == 'dashboard' }}" href="/">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M2 6.5 8 2l6 4.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />
-              </svg>{{ tr.dashboard }}
-            </a>
-            <a class="nav-item {{ 'active' if active == 'findings' }}" href="/findings">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M8 2.5 13.5 5v4c0 3-2.4 4.6-5.5 5.5C4.9 13.6 2.5 12 2.5 9V5z" />
-                <path d="M6 8l1.6 1.6L10.5 6.8" />
-              </svg>{{ tr.findings }}
-            </a>
-            <a class="nav-item {{ 'active' if active == 'programs' }}" href="/programs">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.2l1.3 1.7h5.5A1.5 1.5 0 0 1 14 6.2v5.3A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" />
-              </svg>{{ tr.programs }}
-            </a>
-            <a class="nav-item {{ 'active' if active == 'search' }}" href="/search">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="7" cy="7" r="4.5" />
-                <path d="M10.5 10.5 14 14" />
-              </svg>{{ tr.lookup }}
-            </a>
-          </nav>
-          <div class="nav-group">
-            <p class="nav-label">{{ tr.nav_data }}</p>
-            <a class="nav-item {{ 'active' if active == 'tags' }}" href="/tags">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
-                <path d="M2.5 8.2V3.5a1 1 0 0 1 1-1h4.7l5.3 5.3a1 1 0 0 1 0 1.4l-4.3 4.3a1 1 0 0 1-1.4 0z" />
-                <circle cx="5.7" cy="5.7" r="0.9" />
-              </svg>{{ tr.tags }}
-            </a>
-            <a class="nav-item {{ 'active' if active == 'export' }}" href="/export">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M8 2.5v7.5M5 7l3 3 3-3" />
-                <path d="M3 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1" />
-              </svg>{{ tr.ai_export }}
-            </a>
+        <nav class="masthead-nav" id="sidebar" aria-label="Primary">
+          <a class="nav-item {{ 'active' if active == 'dashboard' }}" href="/" {{ 'aria-current="page"' if active == 'dashboard' }}>{{ tr.dashboard }}</a>
+          <a class="nav-item {{ 'active' if active == 'findings' }}" href="/findings" {{ 'aria-current="page"' if active == 'findings' }}>{{ tr.findings }}</a>
+          <a class="nav-item {{ 'active' if active == 'programs' }}" href="/programs" {{ 'aria-current="page"' if active == 'programs' }}>{{ tr.programs }}</a>
+          <a class="nav-item {{ 'active' if active == 'search' }}" href="/search" {{ 'aria-current="page"' if active == 'search' }}>{{ tr.lookup }}</a>
+          <a class="nav-item {{ 'active' if active == 'tags' }}" href="/tags" {{ 'aria-current="page"' if active == 'tags' }}>{{ tr.tags }}</a>
+          <a class="nav-item {{ 'active' if active == 'export' }}" href="/export" {{ 'aria-current="page"' if active == 'export' }}>{{ tr.ai_export }}</a>
+          <div class="nav-drawer-foot">
+            <button class="text-action" type="button" data-theme-toggle data-label-dark="{{ tr.theme_dark }}" data-label-light="{{ tr.theme_light }}"><span data-theme-label>{{ tr.theme_dark }}</span></button>
+            <form method="post" action="/logout">
+              <input type="hidden" name="csrf" value="{{ csrf_token }}">
+              <button class="text-action" type="submit">{{ tr.logout }}</button>
+            </form>
           </div>
-        </div>
-        <div class="sidebar-footer">
-          <button class="text-action theme-toggle" type="button" data-theme-toggle data-label-dark="{{ tr.theme_dark }}" data-label-light="{{ tr.theme_light }}"><span data-theme-label>{{ tr.theme_dark }}</span></button>
-          <form method="post" action="/logout">
+        </nav>
+        <form class="masthead-search" method="get" action="/search" role="search">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5 14 14" />
+          </svg>
+          <input type="search" name="q" placeholder="{{ tr.quick_search }}" aria-label="{{ tr.quick_search }}" autocomplete="off" data-palette-open>
+          <kbd>Ctrl K</kbd>
+        </form>
+        <div class="masthead-actions">
+          {% if explorer_programs is defined %}
+            <button class="masthead-button explorer-toggle" type="button" data-explorer-toggle aria-controls="program-explorer" aria-expanded="false" aria-label="{{ tr.programs }}" title="{{ tr.programs }}">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.2l1.3 1.7h5.5A1.5 1.5 0 0 1 14 6.2v5.3A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" />
+              </svg>
+            </button>
+          {% endif %}
+          <a class="button primary masthead-new" href="/findings/new{{ '?program_id=' ~ explorer_current_program if explorer_current_program }}">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
+            <span>{{ tr.new_vulnerability }}</span>
+          </a>
+          <button class="masthead-button theme-toggle" type="button" data-theme-toggle data-label-dark="{{ tr.theme_dark }}" data-label-light="{{ tr.theme_light }}" title="{{ tr.theme_dark }}">
+            <svg class="theme-icon-dark" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M13.2 9.6A5.5 5.5 0 0 1 6.4 2.8a5.5 5.5 0 1 0 6.8 6.8z" /></svg>
+            <svg class="theme-icon-light" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" /></svg>
+            <span class="visually-hidden" data-theme-label>{{ tr.theme_dark }}</span>
+          </button>
+          <form class="masthead-logout" method="post" action="/logout">
             <input type="hidden" name="csrf" value="{{ csrf_token }}">
-            <button class="text-action" type="submit">{{ tr.logout }}</button>
+            <button class="masthead-button" type="submit" title="{{ tr.logout }}" aria-label="{{ tr.logout }}">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 2.5h-3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3M10.5 11 13.5 8l-3-3M13.5 8h-7" /></svg>
+            </button>
           </form>
         </div>
-      </aside>
+      </header>
 
       {% if explorer_programs is defined %}
         <aside class="program-explorer" id="program-explorer">
@@ -140,28 +132,6 @@
       {% endif %}
 
       <main class="main-area">
-        {% set top_actions = active in ("dashboard", "search") %}
-        <header class="topbar{{ '' if top_actions else ' topbar-nav-only' }}">
-          <button class="menu-button" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-              <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
-            </svg>
-            <span class="btn-label">{{ tr.menu }}</span>
-          </button>
-          {% if explorer_programs is defined %}
-            <button class="menu-button" type="button" data-explorer-toggle aria-controls="program-explorer" aria-expanded="false">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-                <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.2l1.3 1.7h5.5A1.5 1.5 0 0 1 14 6.2v5.3A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" />
-              </svg>
-              <span class="btn-label">{{ tr.programs }}</span>
-            </button>
-          {% endif %}
-          {% if top_actions %}
-            <div class="top-actions">
-              <a class="button primary" href="/findings/new{{ '?program_id=' ~ explorer_current_program if explorer_current_program }}">{{ tr.new_vulnerability }}</a>
-            </div>
-          {% endif %}
-        </header>
         <div class="page-wrap">
           {% block content %}{% endblock %}
         </div>

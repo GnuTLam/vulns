@@ -4,13 +4,7 @@
 {% block content %}
   {% set filtered = q or selected_status or selected_severity or selected_program %}
   <div class="toolbar">
-    <div class="crumbs">
-      <strong>{{ tr.findings }}</strong>
-      {% if tab == "reports" %}<code>{{ result_total }}</code>{% endif %}
-    </div>
-    <div class="toolbar-actions">
-      <a class="button primary" href="/findings/new{{ '?program_id=' ~ selected_program if selected_program }}">{{ tr.new_vulnerability }}</a>
-    </div>
+    <h1 class="page-title">{{ tr.findings }}{% if tab == "reports" %} <span class="page-count">{{ result_total }}</span>{% endif %}</h1>
   </div>
   <div class="workspace">
     <nav class="tabs" aria-label="{{ tr.findings }}">
@@ -37,7 +31,7 @@
             <option value="{{ item.id }}" {{ 'selected' if selected_program == item.id }}>{{ item.name }}</option>
           {% endfor %}
         </select>
-        <div class="segmented" role="radiogroup" aria-label="{{ tr.status }}">
+        <div class="segments status-switch" role="radiogroup" aria-label="{{ tr.status }}">
           <label class="segment {{ 'active' if not selected_status }}">
             <input class="visually-hidden" type="radio" name="status" value="" {{ 'checked' if not selected_status }}>
             {{ tr.all }}<b>{{ match_total }}</b>

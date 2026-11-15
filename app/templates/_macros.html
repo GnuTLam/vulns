@@ -32,39 +32,51 @@
   {% endif %}
 {%- endmacro %}
 
-{# One row per vulnerability, as listed on the vulnerabilities page and on a program; a row opens its vulnerability. #}
+{# One row per vulnerability, as listed on the vulnerabilities page and on a program; a row opens its vulnerability.
+   Fixed layout with a colgroup, so the columns stay put when a filter changes the rows. #}
 {% macro vulnerability_table(items, show_program=true) -%}
   <div class="table-wrap">
-    <table class="registry-table vulnerability-table">
+    <table class="registry-table vulnerability-table{{ ' with-program' if show_program }}">
+      <colgroup>
+        <col class="col-title">
+        {% if show_program %}<col class="col-program">{% endif %}
+        <col class="col-severity">
+        <col class="col-status">
+        <col class="col-bounty">
+        <col class="col-updated">
+      </colgroup>
       <thead>
         <tr>
           <th>{{ tr.title }}</th>
-          {% if show_program %}<th>{{ tr.program }}</th>{% endif %}
+          {% if show_program %}<th class="col-program">{{ tr.program }}</th>{% endif %}
           <th>{{ tr.severity }}</th>
           <th>{{ tr.status }}</th>
-          <th>{{ tr.bounty }}</th>
-          <th>{{ tr.updated }}</th>
+          <th class="amount-head">{{ tr.bounty }}</th>
+          <th class="col-updated">{{ tr.updated }}</th>
         </tr>
       </thead>
       <tbody>
         {% for finding in items %}
           <tr data-row-href="{{ finding.url }}">
-            <td>
+            <td class="title-cell">
               <a class="strong-link" href="{{ finding.url }}" title="{{ finding.knowledge.title }}">{{ display_title(finding.knowledge.title, finding.report_id) }}</a>
               <small>
                 {%- if finding.report_id %}<span class="report-ref">#{{ finding.report_id }}</span> · {% endif -%}
                 {{ finding.knowledge.bug_type -}}
+                {%- if show_program %}<span class="row-program"> · {{ finding.program.name }}</span>{% endif -%}
               </small>
             </td>
-            {% if show_program %}<td><a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a></td>{% endif %}
+            {% if show_program %}<td class="col-program"><a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a></td>{% endif %}
             <td>{{ severity_label(finding.severity) }}</td>
             <td>{{ status_pill(finding) }}</td>
-            <td>
+            <td class="amount-cell">
               {%- if finding.total_reward is not none -%}
                 <span class="bounty-cell">{{ money(finding.total_reward, finding.currency) }}{{ paid_badge(finding, only_unpaid=true) }}</span>
+              {%- elif finding.is_owed -%}
+                <span class="bounty-cell"><span class="paid-badge is-unpaid" title="{{ tr.amount_not_recorded }}">{{ tr.unpaid }}</span></span>
               {%- endif -%}
             </td>
-            <td class="date-cell"><time datetime="{{ finding.updated_at.isoformat() }}">{{ finding.updated_at|short_day }}</time></td>
+            <td class="date-cell col-updated"><time datetime="{{ finding.updated_at.isoformat() }}">{{ finding.updated_at|short_day }}</time></td>
           </tr>
         {% endfor %}
       </tbody>
@@ -131,7 +143,7 @@
     <span class="vuln-row-bounty">
       {%- if finding and finding.total_reward is not none -%}
         {{ money(finding.total_reward, finding.currency) }}{{ paid_badge(finding, only_unpaid=true) }}
-      {%- elif finding and finding.outcome == "accepted" and not finding.is_paid -%}
+      {%- elif finding and finding.is_owed -%}
         <span class="paid-badge is-unpaid">{{ tr.unpaid }}</span>
       {%- endif -%}
     </span>

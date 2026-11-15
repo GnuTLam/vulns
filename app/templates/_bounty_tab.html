@@ -1,4 +1,6 @@
-{# The Bounty tab of the vulnerabilities page. Every link and return_to is built by bounty_link, so filters survive. #}
+{# The Bounty tab of the vulnerabilities page, set out as a ledger. Per currency the totals
+   reconcile: Total = Received + Owed. Owed reports with no amount yet are counted, never shown
+   as 0. Every link and return_to is built by bounty_link, so filters survive. #}
 {% import "_macros.html" as ui with context %}
 <div class="bounty-tab">
   {% if not any_rewards %}
@@ -8,7 +10,7 @@
       <div class="empty-actions"><a class="button" href="/findings">{{ tr.reports }}</a></div>
     </section>
   {% else %}
-    <div class="filter-row bounty-filters">
+    <div class="bounty-filters">
       {% if years %}
         <nav class="period-tabs" aria-label="{{ tr.period }}">
           {% for item in years %}
@@ -28,112 +30,105 @@
           {% endfor %}
         </select>
       </form>
-      {% if summary|length > 1 %}
-        <nav class="period-tabs currency-tabs" aria-label="{{ tr.currency }}">
-          {% for row in summary %}
-            <a class="period-tab {{ 'active' if row.currency == selected_currency }}" href="{{ bounty_link(currency=row.currency) }}">{{ row.currency }}</a>
-          {% endfor %}
-        </nav>
-      {% endif %}
       {% if selected_program %}<a class="text-action" href="{{ bounty_link(program_id='') }}">{{ tr['clear'] }}</a>{% endif %}
     </div>
 
-    {% if not years %}
-      <section class="panel empty-state">
-        <h2>{{ tr.no_earnings_for_program }}</h2>
-        <p>{{ tr.no_earnings_help }}</p>
-      </section>
-    {% else %}
-      <section class="earnings-summary" aria-label="{{ tr.earnings }}">
-        {% for row in summary %}
-          <div class="earnings-card cur-{{ row.currency|lower }} {{ 'active' if row.currency == selected_currency }}" data-bounty-currency="{{ row.currency }}">
-            <span class="earnings-card-head">{{ ui.money(row.total, row.currency) }}</span>
-            <span class="earnings-split">
-              <span class="paid-badge is-paid">{{ tr.paid }}</span><b class="num">{{ row.paid|money(row.currency) }}</b>
-              <span class="paid-badge is-unpaid">{{ tr.unpaid }}</span><b class="num">{{ row.unpaid|money(row.currency) }}</b>
-            </span>
-            <span class="earnings-meter" aria-hidden="true">
-              <i style="width: {{ (row.paid / row.total * 100) if row.total else 0 }}%"></i>
-            </span>
-            <small>
-              {{ row.count }} {{ tr.rewarded_reports|lower }} · {{ tr.average }} {{ row.average|money(row.currency) }}
-              · {{ tr.largest }} {{ row.largest|money(row.currency) }}
-            </small>
-          </div>
-        {% else %}
-          <p class="empty-compact">{{ tr.no_earnings_in_period }}</p>
-        {% endfor %}
-      </section>
+    {% set current = (summary|selectattr('currency', 'equalto', selected_currency)|list|first) if selected_currency else none %}
+    {% set owed_unrecorded_text = (tr.owed_unrecorded_one if owed.unrecorded == 1 else tr.owed_unrecorded)|format(count=owed.unrecorded) %}
 
-      {% if selected_currency %}
-        <section class="panel">
-          <div class="panel-head">
-            <h2 class="section-label">{{ tr.by_month if selected_year is not none else tr.by_year }}</h2>
-            <span class="meta">{{ selected_currency }}</span>
-          </div>
-          <div class="panel-body">
-            <div class="earnings-chart" role="list">
-              {% for row in periods %}
-                {% set amount = row.paid + row.unpaid %}
-                <div class="earnings-column" role="listitem"
-                     title="{{ row.label }}: {{ amount|money(selected_currency) }} {{ selected_currency }} ({{ tr.paid|lower }} {{ row.paid|money(selected_currency) }}, {{ tr.unpaid|lower }} {{ row.unpaid|money(selected_currency) }})">
-                  <span class="earnings-bar">
-                    {% if amount %}<span class="earnings-total">{{ amount|money_compact }}</span>{% endif %}
-                    <span class="earnings-stack" style="height: {{ (amount / peak * 100) if peak else 0 }}%">
-                      {% if row.unpaid %}<i class="is-unpaid" style="flex-grow: {{ row.unpaid }}"></i>{% endif %}
-                      {% if row.paid %}<i class="is-paid" style="flex-grow: {{ row.paid }}"></i>{% endif %}
-                    </span>
-                  </span>
-                  <small>{{ row.axis }}</small>
-                </div>
-              {% endfor %}
-            </div>
-            <div class="earnings-legend">
-              <span><i class="is-paid"></i>{{ tr.paid }}</span>
-              <span><i class="is-unpaid"></i>{{ tr.unpaid }}</span>
-              {% if metrics.median_reward_days is not none %}
-                <span>{{ tr.median_reward }} <b>{{ metrics.median_reward_days }}</b> {{ tr.days }}</span>
-              {% endif %}
-            </div>
-          </div>
-        </section>
-      {% endif %}
-
-      <section class="panel" id="unpaid">
+    {# 1. Totals: the equation per currency, then the reports that cannot be added yet. #}
+    <section class="panel" aria-label="{{ tr.earnings }}">
       <div class="panel-head">
-        <h2 class="section-label">{{ tr.still_owed }}</h2>
-        <span class="meta">
-          {%- for row in unpaid_totals %}{{ ui.money(row.unpaid, row.currency) }}{% if not loop.last %} · {% endif %}{% else %}0{% endfor -%}
+        <h2 class="section-label">{{ tr.bounty_totals }}</h2>
+        <span class="meta">{{ selected_year if selected_year is not none else tr.all_time }}</span>
+      </div>
+      {% if summary %}
+        <div class="table-wrap">
+          <table class="sum-table">
+            <thead>
+              <tr>
+                <th>{{ tr.currency }}</th>
+                <th class="amount-head">{{ tr.received }}</th>
+                <th class="amount-head">{{ tr.owed }}</th>
+                <th class="amount-head">{{ tr.total }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in summary %}
+                <tr class="{{ 'is-current' if row.currency == selected_currency }}" data-bounty-currency="{{ row.currency }}">
+                  <td class="sum-currency">
+                    {% if summary|length > 1 %}
+                      <a href="{{ bounty_link(currency=row.currency) }}" {{ 'aria-current=true' if row.currency == selected_currency }}>{{ row.currency }}</a>
+                      {% if row.currency == selected_currency %}<em class="sum-charting">{{ tr.charting }}</em>{% endif %}
+                    {% else %}
+                      <span>{{ row.currency }}</span>
+                    {% endif %}
+                    <small>{{ row.count }} {{ tr.rewarded_reports|lower }} · {{ tr.average }} {{ row.average|money(row.currency) }} · {{ tr.largest }} {{ row.largest|money(row.currency) }}</small>
+                  </td>
+                  <td class="amount-cell sum-received">{{ row.paid|money(row.currency) }}</td>
+                  <td class="amount-cell sum-owed {{ 'is-zero' if not row.unpaid }}" data-op="+">{{ row.unpaid|money(row.currency) }}</td>
+                  <td class="amount-cell sum-total" data-op="=">{{ row.total|money(row.currency) }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="empty-compact">{{ tr.no_earnings_in_period if years else tr.no_earnings_for_program }}</p>
+      {% endif %}
+      {% if owed.unrecorded %}
+        <p class="sum-note">
+          <a class="paid-badge is-unpaid" href="#unpaid">{{ owed_unrecorded_text }}</a>
+          <span>{{ tr.owed_unrecorded_help }}</span>
+        </p>
+      {% endif %}
+    </section>
+
+    {# 2. What is still owed, whatever the period, each with the Mark paid action. #}
+    <section class="panel" id="unpaid">
+      <div class="panel-head">
+        <h2 class="section-label">{{ tr.still_owed }}{% if owed.count %} <b class="count">{{ owed.count }}</b>{% endif %}</h2>
+        <span class="meta owed-meta">
+          {%- for row in owed.rows %}{{ ui.money(row.amount, row.currency) }}{% if not loop.last %} · {% endif %}{% endfor -%}
+          {%- if owed.unrecorded %}{% if owed.rows %} · {% endif %}{{ owed_unrecorded_text }}{% endif -%}
         </span>
       </div>
       {% if unpaid %}
+        {% if selected_year is not none %}<p class="panel-note owed-scope">{{ tr.owed_all_years }}</p>{% endif %}
         <div class="table-wrap">
-          <table class="registry-table earnings-table">
+          <table class="registry-table stack-table owed-table">
             <thead>
               <tr>
                 <th>{{ tr.title }}</th>
-                <th>{{ tr.program }}</th>
                 <th>{{ tr.severity }}</th>
-                <th class="amount-head">{{ tr.total_reward }}</th>
-                <th class="amount-head">{{ tr.days_owed }}</th>
+                <th class="amount-head">{{ tr.owed }}</th>
                 <th><span class="visually-hidden">{{ tr.mark_paid }}</span></th>
               </tr>
             </thead>
             <tbody>
-              {% for finding, days in unpaid %}
+              {% for finding in unpaid %}
                 <tr>
-                  <td><a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
-                    {%- if finding.report_id %}<small> · {{ finding.report_id }}</small>{% endif %}</td>
-                  <td><a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a></td>
-                  <td>{{ ui.severity_label(finding.effective_severity) }}</td>
-                  <td class="amount-cell">{{ ui.money(finding.total_reward, finding.currency) }}</td>
-                  <td class="amount-cell">{{ days if days is not none else '–' }}</td>
-                  <td>
+                  <td class="cell-report">
+                    <a class="strong-link" href="{{ finding.url }}">{{ display_title(finding.knowledge.title, finding.report_id) }}</a>
+                    <small>
+                      {%- if finding.report_id %}<span class="report-ref">#{{ finding.report_id }}</span> · {% endif -%}
+                      <a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a>
+                    </small>
+                  </td>
+                  <td class="cell-sev">{{ ui.severity_label(finding.effective_severity) }}</td>
+                  <td class="amount-cell cell-amount">
+                    {%- if finding.total_reward is not none -%}
+                      {{ ui.money(finding.total_reward, finding.currency) }}
+                    {%- else -%}
+                      <span class="no-amount"><span class="paid-badge is-unpaid">{{ tr.unpaid }}</span><small>{{ tr.amount_not_recorded }}</small></span>
+                    {%- endif -%}
+                  </td>
+                  <td class="cell-action">
                     <form method="post" action="{{ finding.url }}/paid">
                       <input type="hidden" name="csrf" value="{{ csrf_token }}">
                       <input type="hidden" name="paid" value="1">
                       <input type="hidden" name="return_to" value="{{ bounty_link() }}#unpaid">
-                      <button class="button compact-button" type="submit">{{ tr.mark_paid }}</button>
+                      <button class="text-action" type="submit">{{ tr.mark_paid }}</button>
                     </form>
                   </td>
                 </tr>
@@ -147,44 +142,99 @@
     </section>
 
     {% if selected_currency %}
+      {# 3. Awarded per month (or year). Bars carry exact amounts and add up to the total above. #}
+      <section class="panel" id="chart">
+        <div class="panel-head">
+          <h2 class="section-label">{{ tr.by_year if periods and periods[0].label|length == 4 else tr.by_month }} · {{ selected_currency }}</h2>
+        </div>
+        <div class="flow" role="list">
+          {% for row in periods %}
+            {% set amount = row.paid + row.unpaid %}
+            {% set year_mark = row.year or (row.label[:4] if loop.first and selected_year is none and row.label|length == 7 else '') %}
+            {% if year_mark %}<div class="flow-year" aria-hidden="true">{{ year_mark }}</div>{% endif %}
+            <div class="flow-row {{ 'is-empty' if not amount }}" role="listitem"
+                 title="{{ row.label }}: {{ amount|money(selected_currency) }} {{ selected_currency }} ({{ tr.received|lower }} {{ row.paid|money(selected_currency) }}, {{ tr.owed|lower }} {{ row.unpaid|money(selected_currency) }})">
+              <span class="flow-axis">{{ row.axis }}</span>
+              <span class="flow-track">
+                {% if amount %}
+                  <span class="flow-bar" style="width: {{ (amount / peak * 100) if peak else 0 }}%">
+                    {% if row.paid %}<i class="is-paid" style="flex-grow: {{ row.paid }}"></i>{% endif %}
+                    {% if row.unpaid %}<i class="is-unpaid" style="flex-grow: {{ row.unpaid }}"></i>{% endif %}
+                  </span>
+                {% endif %}
+              </span>
+              <b class="flow-amount">{{ amount|money(selected_currency) if amount else '–' }}</b>
+              <span class="flow-owed">{% if row.unpaid %}{{ row.unpaid|money(selected_currency) }} {{ tr.owed|lower }}{% endif %}</span>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="flow-foot">
+          <span class="flow-legend">
+            <span><i class="is-paid"></i>{{ tr.received }}</span>
+            <span><i class="is-unpaid"></i>{{ tr.owed }}</span>
+            {% if metrics.median_reward_days is not none %}
+              <span class="flow-median">{{ tr.median_reward }} <b>{{ metrics.median_reward_days }}</b> {{ tr.days }}</span>
+            {% endif %}
+          </span>
+          {% if current %}
+            <span class="flow-sum">{{ tr.chart_total }} <b>{{ ui.money(current.total, selected_currency) }}</b></span>
+          {% endif %}
+        </div>
+      </section>
+
+      {# 4. Every rewarded report, newest award first; the footer is the same total again. #}
       <section class="panel" id="ledger">
         <div class="panel-head">
-          <h2 class="section-label">{{ tr.rewards_ledger }}</h2>
-          <span class="meta">{{ ledger|length }} · {{ selected_currency }}</span>
+          <h2 class="section-label">{{ tr.rewards_ledger }} · {{ selected_currency }}</h2>
+          <span class="meta">{{ ledger|length }}</span>
         </div>
         <div class="table-wrap">
-          <table class="registry-table earnings-table">
+          <table class="registry-table stack-table ledger-table">
             <thead>
               <tr>
                 <th>{{ tr.earned_on }}</th>
                 <th>{{ tr.title }}</th>
-                <th>{{ tr.program }}</th>
                 <th>{{ tr.severity }}</th>
                 <th class="amount-head">{{ tr.total_reward }}</th>
-                <th>{{ tr.paid }}</th>
+                <th>{{ tr.status }}</th>
+                <th><span class="visually-hidden">{{ tr.mark_paid }}</span></th>
               </tr>
             </thead>
             <tbody>
               {% for finding in ledger %}
                 <tr>
-                  <td class="mono-cell">{{ finding.earned_on }}</td>
-                  <td><a class="strong-link" href="{{ finding.url }}">{{ finding.knowledge.title }}</a>
-                    {%- if finding.report_id %}<small> · {{ finding.report_id }}</small>{% endif %}</td>
-                  <td><a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a></td>
-                  <td>{{ ui.severity_label(finding.effective_severity) }}</td>
-                  <td class="amount-cell">{{ ui.money(finding.total_reward, finding.currency) }}</td>
-                  <td>
+                  <td class="mono-cell cell-date"><time datetime="{{ finding.earned_on }}">{{ short_date(finding.earned_on) }}</time></td>
+                  <td class="cell-report">
+                    <a class="strong-link" href="{{ finding.url }}">{{ display_title(finding.knowledge.title, finding.report_id) }}</a>
+                    <small>
+                      {%- if finding.report_id %}<span class="report-ref">#{{ finding.report_id }}</span> · {% endif -%}
+                      <a href="/programs/{{ finding.program_id }}">{{ finding.program.name }}</a>
+                    </small>
+                  </td>
+                  <td class="cell-sev">{{ ui.severity_label(finding.effective_severity) }}</td>
+                  <td class="amount-cell cell-amount">{{ ui.money(finding.total_reward, finding.currency) }}</td>
+                  <td class="cell-status">{{ ui.paid_badge(finding) }}</td>
+                  <td class="cell-action">
                     <form class="paid-toggle" method="post" action="{{ finding.url }}/paid">
                       <input type="hidden" name="csrf" value="{{ csrf_token }}">
                       <input type="hidden" name="paid" value="{{ '0' if finding.is_paid else '1' }}">
                       <input type="hidden" name="return_to" value="{{ bounty_link() }}#ledger">
-                      {{ ui.paid_badge(finding) }}
                       <button class="text-action" type="submit">{{ tr.mark_unpaid if finding.is_paid else tr.mark_paid }}</button>
                     </form>
                   </td>
                 </tr>
               {% endfor %}
             </tbody>
+            {% if current %}
+              <tfoot>
+                <tr>
+                  <td colspan="3">{{ tr.total }}</td>
+                  <td class="amount-cell cell-amount">{{ ui.money(current.total, selected_currency) }}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            {% endif %}
           </table>
         </div>
       </section>
@@ -192,17 +242,17 @@
       {% if not selected_program %}
         <section class="panel">
           <div class="panel-head">
-            <h2 class="section-label">{{ tr.by_program }}</h2>
+            <h2 class="section-label">{{ tr.by_program }} · {{ selected_currency }}</h2>
             <span class="meta">{{ by_program|length }}</span>
           </div>
           <div class="table-wrap">
-            <table class="registry-table earnings-table">
+            <table class="registry-table program-table">
               <thead>
                 <tr>
                   <th>{{ tr.program }}</th>
-                  <th class="amount-head">{{ tr.rewarded_reports }}</th>
-                  <th class="amount-head">{{ tr.paid }}</th>
-                  <th class="amount-head">{{ tr.unpaid }}</th>
+                  <th class="amount-head col-reports">{{ tr.reports_short }}</th>
+                  <th class="amount-head">{{ tr.received }}</th>
+                  <th class="amount-head">{{ tr.owed }}</th>
                   <th class="amount-head">{{ tr.total }}</th>
                 </tr>
               </thead>
@@ -210,9 +260,9 @@
                 {% for row in by_program %}
                   <tr>
                     <td><a class="strong-link" href="{{ bounty_link(program_id=row.id) }}">{{ row.name }}</a></td>
-                    <td class="amount-cell">{{ row.count }}</td>
+                    <td class="amount-cell col-reports">{{ row.count }}</td>
                     <td class="amount-cell">{{ row.paid|money(selected_currency) }}</td>
-                    <td class="amount-cell">{{ row.unpaid|money(selected_currency) }}</td>
+                    <td class="amount-cell {{ 'is-zero' if not row.unpaid else 'sum-owed' }}">{{ row.unpaid|money(selected_currency) }}</td>
                     <td class="amount-cell"><strong>{{ (row.paid + row.unpaid)|money(selected_currency) }}</strong></td>
                   </tr>
                 {% endfor %}
@@ -224,21 +274,19 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2 class="section-label">{{ tr.severity_mix }}</h2>
-          <span class="meta">{{ selected_currency }}</span>
+          <h2 class="section-label">{{ tr.severity_mix }} · {{ selected_currency }}</h2>
         </div>
-        <div class="panel-body bars">
+        <div class="panel-body bars severity-bars">
           {% for row in by_severity %}
             {% set amount = row.paid + row.unpaid %}
             <a class="bar-row sev-{{ row.severity }}" href="/findings?severity={{ row.severity }}&amp;q=has%3Areward{{ '&program_id=' ~ selected_program if selected_program }}">
               <span>{{ humanize(row.severity) }} · {{ row.count }}</span>
               <span class="bar"><i style="width: {{ (amount / severity_peak * 100) if severity_peak else 0 }}%"></i></span>
-              <b class="num earnings-amount">{{ amount|money(selected_currency) }}</b>
+              <b>{{ amount|money(selected_currency) }}</b>
             </a>
           {% endfor %}
         </div>
       </section>
-    {% endif %}
     {% endif %}
   {% endif %}
 </div>

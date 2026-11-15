@@ -1,0 +1,57 @@
+/* Tags: a plain index. Name, count, rename, delete; the tag itself is text, not a chip. */
+.tags-table {
+  table-layout: fixed;
+  min-width: 560px;
+}
+.tags-table th:first-child,
+.tags-table td:first-child {
+  padding-left: 16px;
+}
+.tags-table th:last-child,
+.tags-table td:last-child {
+  padding-right: 16px;
+  text-align: right;
+}
+.tags-table th:nth-child(2) {
+  width: 110px;
+}
+.tags-table th:nth-child(3) {
+  width: 320px;
+}
+.tags-table th:nth-child(4) {
+  width: 84px;
+}
+.tag-name {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.tag-name:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.tag-rename {
+  display: flex;
+  gap: 6px;
+}
+.tag-rename input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 28px;
+  padding-block: 2px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.tag-rename .button {
+  flex: none;
+}
+.tags-table td form {
+  display: inline-flex;
+}
+.tags-table .num-head,
+.tags-table .num-cell {
+  padding-right: 28px;
+}

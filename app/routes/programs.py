@@ -10,7 +10,7 @@ from ..database import push_rediscovery_for_signals
 from ..forms import lf, program_name
 from ..models import KnowledgeEntry, Program
 from ..security import validate_csrf, validate_external_url
-from ..stats import earnings_by_currency, program_counts, response_metrics
+from ..stats import earnings_by_currency, owed_summary, program_counts, response_metrics
 from ..vulns import with_report_urls
 from ..web import explorer_values, get_db, get_knowledge, get_program, refresh_markdown, render, require_auth
 
@@ -60,8 +60,9 @@ def programs(request: Request, db: Session = Depends(get_db)):
     items = db.query(Program).options(selectinload(Program.findings)).order_by(Program.archived, Program.name).all()
     counts = {item.id: program_counts(item.findings) for item in items}
     earned = {item.id: earnings_by_currency(item.findings) for item in items}
+    owed = {item.id: owed_summary(item.findings) for item in items}
     # The table lists every program, so the explorer would only repeat it.
-    return render(request, "programs.html", "programs", programs=items, counts=counts, earned=earned)
+    return render(request, "programs.html", "programs", programs=items, counts=counts, earned=earned, owed=owed)
 
 
 @router.get("/programs/new", response_class=HTMLResponse)
@@ -106,6 +107,7 @@ def program_detail(request: Request, program_id: str, db: Session = Depends(get_
         rediscover=rediscovery_for_program(db, item),
         counts=program_counts(item.findings),
         earnings=earnings_by_currency(item.findings),
+        owed=owed_summary(item.findings),
         metrics=response_metrics(item.findings),
         **explorer_values(db, current_program_id=item.id),
     )

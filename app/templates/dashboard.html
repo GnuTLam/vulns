@@ -28,9 +28,7 @@
       </div>
     </section>
   {% endif %}
-  <div class="toolbar">
-    <div class="crumbs"><strong>{{ tr.dashboard }}</strong></div>
-  </div>
+  <h1 class="visually-hidden">{{ tr.dashboard }}</h1>
   <div class="workspace">
     {% if is_new_workspace %}
       <section class="panel onboarding">
@@ -128,41 +126,42 @@
         </div>
 
         <div class="home-side panel-stack">
+          {# The same numbers as the Bounty tab (all time): per currency Received + Owed = Total.
+             Owed reports with no amount yet are counted, never shown as 0. #}
           <section class="panel home-earnings">
             <div class="panel-head">
               <h2 class="section-label">{{ tr.earnings }}</h2>
-              <a class="meta" href="/findings?tab=bounty">{{ tr.view_all }}</a>
+              <a class="meta" href="/findings?tab=bounty">{{ tr.bounty_ledger }}</a>
             </div>
-            <dl class="ledger">
-              {% for row in earnings_split %}
-                <div>
-                  <dt>{{ ui.money(row.total, row.currency) }}</dt>
-                  <dd>
-                    {%- if row.unpaid %}<a class="paid-badge is-unpaid" href="/findings?tab=bounty#unpaid">{{ tr.unpaid }} {{ row.unpaid|money(row.currency) }}</a>
-                    {%- endif -%}
-                  </dd>
+            {% for row in earnings_split %}
+              <dl class="earn-lines" data-earnings-currency="{{ row.currency }}">
+                <div class="earn-cur"><dt>{{ row.currency }}</dt><dd>{{ row.count }} {{ tr.rewarded_reports|lower }}</dd></div>
+                <div class="earn-received"><dt>{{ tr.received }}</dt><dd>{{ row.paid|money(row.currency) }}</dd></div>
+                <div class="earn-owed {{ 'is-zero' if not row.unpaid }}">
+                  <dt>{{ tr.owed }}</dt>
+                  <dd>{% if row.unpaid %}<a href="/findings?tab=bounty#unpaid">{{ row.unpaid|money(row.currency) }}</a>{% else %}{{ row.unpaid|money(row.currency) }}{% endif %}</dd>
                 </div>
-              {% else %}
-                <div>
-                  <dt>{{ tr.not_rewarded_yet }}</dt>
-                  <dd class="is-empty">–</dd>
-                </div>
-              {% endfor %}
-              {% if metrics.median_triage_days is not none %}
-                <div>
-                  <dt>{{ tr.median_triage }}</dt>
-                  <dd>{{ metrics.median_triage_days }} <span>{{ tr.days }}</span></dd>
-                </div>
-              {% endif %}
-              {% if metrics.median_reward_days is not none %}
-                <div>
-                  <dt>{{ tr.median_reward }}</dt>
-                  <dd>{{ metrics.median_reward_days }} <span>{{ tr.days }}</span></dd>
-                </div>
-              {% endif %}
-            </dl>
-            {% if metrics.median_triage_days is none and metrics.median_reward_days is none %}
-              <p class="panel-note">{{ tr.response_timing_unavailable }}</p>
+                <div class="earn-total"><dt>{{ tr.total }}</dt><dd>{{ row.total|money(row.currency) }}</dd></div>
+              </dl>
+            {% endfor %}
+            {% if owed.unrecorded %}
+              <p class="earn-unrecorded">
+                <a class="paid-badge is-unpaid" href="/findings?tab=bounty#unpaid">{{ (tr.owed_unrecorded_one if owed.unrecorded == 1 else tr.owed_unrecorded)|format(count=owed.unrecorded) }}</a>
+              </p>
+            {% elif not earnings_split %}
+              <p class="empty-compact">{{ tr.not_rewarded_yet }}</p>
+            {% endif %}
+            {% if metrics.median_triage_days is not none or metrics.median_reward_days is not none %}
+              <dl class="earn-lines earn-timing">
+                {% if metrics.median_triage_days is not none %}
+                  <div><dt>{{ tr.median_triage }}</dt><dd>{{ metrics.median_triage_days }} <span>{{ tr.days }}</span></dd></div>
+                {% endif %}
+                {% if metrics.median_reward_days is not none %}
+                  <div><dt>{{ tr.median_reward }}</dt><dd>{{ metrics.median_reward_days }} <span>{{ tr.days }}</span></dd></div>
+                {% endif %}
+              </dl>
+            {% else %}
+              <p class="panel-note earn-note">{{ tr.response_timing_unavailable }}</p>
             {% endif %}
           </section>
 

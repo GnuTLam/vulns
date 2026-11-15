@@ -181,11 +181,20 @@ class Finding(Base):
 
     @property
     def earned_on(self) -> str:
-        """The day a reward counts towards: paid, awarded, resolved or submitted, whichever is known first."""
-        for value in (self.paid_at, self.rewarded_at, self.resolved_at, self.submitted_at):
+        """The day a reward counts towards: the day it was awarded, as on the platform's own
+        earnings page. Falls back to the payment, then the latest earlier step that is known."""
+        for value in (self.rewarded_at, self.paid_at, self.resolved_at, self.triaged_at, self.submitted_at):
             if value:
                 return value[:10]
         return self.updated_at.date().isoformat() if self.updated_at else ""
+
+    @property
+    def is_owed(self) -> bool:
+        """Money the program owes: accepted or awarded, and not received yet. The amount may
+        not be recorded yet; it is owed all the same. The dashboard and bounty tab both use this."""
+        if self.is_paid or (self.knowledge is not None and self.knowledge.is_draft):
+            return False
+        return self.outcome == "accepted" or self.total_reward is not None
 
     @property
     def days_to_triage(self) -> int | None:

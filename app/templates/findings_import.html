@@ -3,7 +3,10 @@
 {% block content %}
   {% set back_url = "/programs/" ~ selected_program if selected_program else "/findings" %}
   <div class="toolbar">
-    <div class="crumbs"><a href="/findings">{{ tr.findings }}</a><i>/</i><strong>{{ tr.import_markdown }}</strong></div>
+    <div>
+      <div class="crumbs"><a href="/findings">{{ tr.findings }}</a></div>
+      <h1>{{ tr.import_markdown }}</h1>
+    </div>
   </div>
   <div class="workspace">
     <div class="grid-2 import-layout">
@@ -42,7 +45,7 @@
       <aside class="import-guide">
         <section class="panel">
           <div class="panel-head">
-            <h2>{{ tr.import_accepts }}</h2>
+            <p class="section-label">{{ tr.import_accepts }}</p>
           </div>
           <div class="panel-body">
             <ul class="import-checklist">
@@ -53,7 +56,7 @@
             </ul>
           </div>
           <div class="panel-head import-guide-subhead">
-            <h2>{{ tr.import_frontmatter_example }}</h2>
+            <p class="section-label">{{ tr.import_frontmatter_example }}</p>
           </div>
           <div class="panel-body">
             <pre class="import-sample"><code>---

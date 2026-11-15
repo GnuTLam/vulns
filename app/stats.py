@@ -4,10 +4,10 @@ from calendar import month_abbr
 from collections import Counter
 from datetime import date
 
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from .models import Finding, KnowledgeEntry, Program, day_gap
+from .models import Finding, KnowledgeEntry, Program
 from .taxonomy import CLOSED_STATUSES, CURRENCIES, DEFAULT_CURRENCY, SEVERITIES
 
 ATTENTION_ROWS = 6
@@ -54,6 +54,23 @@ def earnings_by_currency(findings) -> list[dict]:
             }
         )
     return rows
+
+
+def owed_summary(findings) -> dict:
+    """What the programs still owe, from ``Finding.is_owed``: amounts per currency, plus how many
+    owed reports have no amount recorded yet. The dashboard and the bounty tab both show this."""
+    owed = [finding for finding in findings if finding.is_owed]
+    totals: dict[str, dict] = {}
+    for finding in owed:
+        if finding.total_reward is not None:
+            row = totals.setdefault(finding.currency or DEFAULT_CURRENCY, {"amount": 0.0, "count": 0})
+            row["amount"] += finding.total_reward
+            row["count"] += 1
+    return {
+        "count": len(owed),
+        "rows": [{"currency": code, **totals[code]} for code in sorted(totals, key=_currency_order)],
+        "unrecorded": sum(1 for finding in owed if finding.total_reward is None),
+    }
 
 
 def response_metrics(findings) -> dict:
@@ -105,7 +122,7 @@ def workspace_snapshot(db: Session) -> dict:
         key=lambda f: -f.reply_wait[0],
     )
     unpaid_all = sorted(
-        (f for f in all_findings if f.outcome == "accepted" and not f.is_paid),
+        (f for f in all_findings if f.is_owed),
         key=lambda f: -f.payment_wait[0],
     )
     awaiting, unpaid = awaiting_all[:ATTENTION_ROWS], unpaid_all[:ATTENTION_ROWS]
@@ -134,6 +151,7 @@ def workspace_snapshot(db: Session) -> dict:
         "severity_counts": Counter(f.severity for f in all_findings),
         "earnings": rewards_by_currency(all_findings),
         "earnings_split": earnings_by_currency(all_findings),
+        "owed": owed_summary(all_findings),
         "metrics": response_metrics(all_findings),
         "awaiting": awaiting,
         "unpaid": unpaid,
@@ -154,55 +172,70 @@ def program_counts(findings) -> dict[str, int]:
     """Vulnerabilities of a program: all, still open (not done) and accepted by the program."""
     return {
         "total": len(findings),
-        "open": sum(1 for f in findings if f.status not in CLOSED_STATUSES),
+        # Same rule as the dashboard's Open figure: an unsent draft is not open at a program.
+        "open": sum(1 for f in findings if f.status not in CLOSED_STATUSES and not f.knowledge.is_draft),
         "accepted": sum(1 for f in findings if f.outcome == "accepted"),
     }
 
 
-def earnings_report(db: Session, period: str = "", currency: str = "", program_id: str = "") -> dict:
-    """The bounty tab: paid and owed rewards per currency, by period, program and severity.
+def _months(first: str, last: str) -> list[str]:
+    """Every ``YYYY-MM`` from ``first`` to ``last``, inclusive."""
+    year, month = int(first[:4]), int(first[5:7])
+    labels = []
+    while f"{year:04d}-{month:02d}" <= last:
+        labels.append(f"{year:04d}-{month:02d}")
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return labels
 
-    ``period`` is a four-digit year, ``all``, or empty for the latest year with rewards. A
-    reward counts towards the period of ``Finding.earned_on``. ``program_id`` narrows every
+
+def earnings_report(db: Session, period: str = "", currency: str = "", program_id: str = "") -> dict:
+    """The bounty tab: received and owed rewards per currency, by period, program and severity.
+
+    ``period`` is a four-digit year; anything else means all time, which is also what the
+    dashboard counts, so the two pages show the same totals by default. A reward counts towards
+    the month of ``Finding.earned_on`` (the day it was awarded). ``program_id`` narrows every
     figure to one program. Money still owed is listed whatever the period, since it is
-    outstanding either way.
+    outstanding either way, and includes accepted reports whose amount is not recorded yet.
     """
-    everything = [
+    findings = [
         finding
-        for finding in db.query(Finding)
-        .options(selectinload(Finding.program), selectinload(Finding.knowledge))
-        .filter(or_(Finding.payout.isnot(None), Finding.bonus.isnot(None)))
-        .all()
-        if finding.total_reward is not None
+        for finding in db.query(Finding).options(selectinload(Finding.program), selectinload(Finding.knowledge)).all()
+        if not finding.knowledge.is_draft and (not program_id or finding.program_id == program_id)
     ]
-    rewarded = [f for f in everything if not program_id or f.program_id == program_id]
+    everything = [finding for finding in findings if finding.total_reward is not None]
+    rewarded = everything
     years = sorted({int(f.earned_on[:4]) for f in rewarded if f.earned_on[:4].isdigit()}, reverse=True)
-    if period.isdigit() and len(period) == 4:
-        year: int | None = int(period)
-    else:
-        year = years[0] if years and period != "all" else None
+    year: int | None = int(period) if period.isdigit() and len(period) == 4 and int(period) in years else None
     in_period = [f for f in rewarded if year is None or f.earned_on.startswith(f"{year:04d}-")]
     summary = earnings_by_currency(in_period)
     codes = [row["currency"] for row in summary]
     selected = currency if currency in codes else (codes[0] if codes else "")
     chosen = [f for f in in_period if (f.currency or DEFAULT_CURRENCY) == selected]
 
-    # Months of the chosen year, or one bar per year for all time.
-    if year is None:
-        labels = [str(item) for item in sorted(years)]
-        timeline = {label: {"paid": 0.0, "unpaid": 0.0, "count": 0} for label in labels}
-        for finding in chosen:
-            _bucket(timeline, finding.earned_on[:4], finding)
+    # A year shows its twelve months. All time shows every month from the first reward to this
+    # month, or one bar per year once that would be more than two years of months.
+    this_month = date.today().isoformat()[:7]
+    months = sorted(f.earned_on[:7] for f in chosen if f.earned_on[:4].isdigit())
+    if year is not None:
+        labels, size = [f"{year:04d}-{month:02d}" for month in range(1, 13)], 7
+    elif months and len(_months(months[0], max(months[-1], this_month))) <= 24:
+        labels, size = _months(months[0], max(months[-1], this_month)), 7
     else:
-        labels = [f"{year:04d}-{month:02d}" for month in range(1, 13)]
-        timeline = {label: {"paid": 0.0, "unpaid": 0.0, "count": 0} for label in labels}
-        for finding in chosen:
-            _bucket(timeline, finding.earned_on[:7], finding)
-    # The axis shows "Jan" for a month and the year itself for a year.
+        labels, size = [str(item) for item in sorted(years)], 4
+    timeline = {label: {"paid": 0.0, "unpaid": 0.0, "count": 0} for label in labels}
+    for finding in chosen:
+        if finding.earned_on[:size] in timeline:
+            _bucket(timeline, finding.earned_on[:size], finding)
+    spans_years = size == 7 and labels and labels[0][:4] != labels[-1][:4]
     periods = [
-        {"label": label, "axis": month_abbr[int(label[5:])] if year is not None else label, **timeline[label]}
-        for label in labels
-        if label in timeline
+        {
+            "label": label,
+            # "Jan", with the year under January (and the first bar) when the bars cross a year.
+            "axis": month_abbr[int(label[5:])] if size == 7 else label,
+            "year": label[:4] if spans_years and (index == 0 or label[5:] == "01") else "",
+            **timeline[label],
+        }
+        for index, label in enumerate(labels)
     ]
     peak = max((row["paid"] + row["unpaid"] for row in periods), default=0.0)
 
@@ -220,12 +253,11 @@ def earnings_report(db: Session, period: str = "", currency: str = "", program_i
     by_severity = [{"severity": name, **severities[name]} for name in reversed(SEVERITIES) if name in severities]
 
     unpaid = sorted(
-        (f for f in rewarded if not f.is_paid),
-        key=lambda f: f.rewarded_at or f.earned_on or "9999",
+        (f for f in findings if f.is_owed),
+        key=lambda f: (f.total_reward is None, f.rewarded_at or f.resolved_at or f.triaged_at or "9999"),
     )
-    today = date.today().isoformat()
     return {
-        "any_rewards": bool(everything),
+        "any_rewards": bool(everything) or bool(unpaid),
         "years": years,
         "selected_year": year,
         "summary": summary,
@@ -237,6 +269,6 @@ def earnings_report(db: Session, period: str = "", currency: str = "", program_i
         "severity_peak": max((row["paid"] + row["unpaid"] for row in by_severity), default=0.0),
         "metrics": response_metrics(chosen),
         "ledger": sorted(chosen, key=lambda f: (f.earned_on, f.id), reverse=True),
-        "unpaid": [(f, day_gap(f.rewarded_at or f.earned_on, today)) for f in unpaid],
-        "unpaid_totals": earnings_by_currency(unpaid),
+        "unpaid": unpaid,
+        "owed": owed_summary(unpaid),
     }

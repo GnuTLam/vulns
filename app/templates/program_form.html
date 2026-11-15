@@ -3,8 +3,9 @@
 {% block content %}
   {% set back_url = "/programs/" ~ program.id if program else "/programs" %}
   <div class="toolbar">
-    <div class="crumbs">
-      <a href="{{ back_url }}">{{ tr.programs }}</a><i>/</i><strong>{{ tr.edit_program if program else tr.new_program }}</strong>
+    <div>
+      <div class="crumbs"><a href="/programs">{{ tr.programs }}</a>{% if program %}<i>/</i><a href="{{ back_url }}">{{ program.name }}</a>{% endif %}</div>
+      <h1>{{ tr.edit_program if program else tr.new_program }}</h1>
     </div>
   </div>
   <div class="workspace">

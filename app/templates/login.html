@@ -4,18 +4,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#1769d2">
+    <meta name="theme-color" content="#f4f3ee">
     <title>{{ tr.login }} · VulnS</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', path='/favicon.svg') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}?v={{ asset_hash }}">
+    {% for sheet in ("core", "editor") %}<link rel="stylesheet" href="{{ url_for('static', path='/css/' ~ sheet ~ '.css') }}?v={{ asset_hash }}">
+    {% endfor %}
     {# Applies the saved theme before sign-in. #}
     <script defer src="{{ url_for('static', path='/app.js') }}?v={{ asset_hash }}"></script>
   </head>
   <body class="login-body">
     <main class="signin">
       <div class="brand">
-        <span class="brand-mark">V</span>
-        <span class="brand-text"><strong>VulnS</strong></span>
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">VulnS</span>
       </div>
       {% if error %}<div class="alert danger">{{ error }}</div>{% endif %}
       <form method="post" action="/login" class="stack">

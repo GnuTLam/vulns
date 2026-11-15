@@ -1,0 +1,1383 @@
+/* VulnS foundation: type, colour, controls and the components every page shares.
+   The identity and its rules are in docs/DESIGN.md; area stylesheets build on these tokens
+   and never redefine them. */
+
+/* IBM Plex, served from this app (the CSP blocks third-party fonts). */
+@font-face {
+  font-family: "Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/plex-sans-latin.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/plex-sans-latin-ext.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../fonts/plex-sans-vietnamese.woff2") format("woff2-variations");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+    U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+@font-face {
+  font-family: "Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/plex-mono-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Plex Mono";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("../fonts/plex-mono-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/plex-mono-latin-ext-400.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+    U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/plex-mono-vietnamese-400.woff2") format("woff2");
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301,
+    U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+/* ---------------------------------------------------------------- Tokens */
+/* Paper and ink. The page is warm paper, a sheet is a lighter leaf on it, rules are pencil.
+   Colour is spent on meaning only: severity, status, money owed, and the one accent. */
+:root {
+  color-scheme: light;
+  --paper: #f4f3ee;
+  --sheet: #fdfcf9;
+  --sheet-2: #f7f6f1;
+  --sheet-3: #eeece5;
+  --rule: #e2dfd5;
+  --rule-strong: #ccc8bb;
+  --ink: #1d1c19;
+  --ink-2: #57544b;
+  --ink-3: #7e7a6f;
+  --accent: #2a44b0;
+  --accent-hover: #1f3591;
+  --accent-soft: #eceffb;
+  --accent-line: #c3cbee;
+  --marker: #fbe78a;
+  --marker-soft: #fdf4c4;
+  --button: #1d1c19;
+  --button-hover: #35332e;
+  --button-ink: #fdfcf9;
+  --danger: #b4232f;
+  --danger-soft: #fbeceb;
+  --ok: #1f6b45;
+  --ok-soft: #e7f2ea;
+  --owed: #a65a00;
+  --owed-soft: #fcf0dc;
+  --info: #2f5fcf;
+  --processing: #6a4fb0;
+  --sev-critical: #c2183c;
+  --sev-high: #d0500d;
+  --sev-medium: #b58200;
+  --sev-low: #2f5fcf;
+  --sev-informational: #23879b;
+  --cur-vnd: #b4232f;
+  --cur-eur: #2a44b0;
+  --cur-usd: #1f6b45;
+  --shade: 0 1px 0 rgba(29, 28, 25, 0.04);
+  --lift: 0 10px 30px rgba(29, 28, 25, 0.16), 0 1px 3px rgba(29, 28, 25, 0.08);
+  --sticky-shade: rgba(29, 28, 25, 0.18);
+
+  --radius: 4px;
+  --radius-sm: 3px;
+  --masthead: 52px;
+  --explorer: 272px;
+  --page-max: 1280px;
+  --read-max: 860px;
+  --gutter: 28px;
+
+  --font: "Plex Sans", "IBM Plex Sans", "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "Plex Mono", "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, "DejaVu Sans Mono",
+    monospace;
+
+  /* Older names kept so markup and area sheets written against them keep working. */
+  --bg: var(--paper);
+  --surface: var(--sheet);
+  --surface-alt: var(--sheet-2);
+  --surface-3: var(--sheet-3);
+  --line: var(--rule);
+  --line-strong: var(--rule-strong);
+  --text: var(--ink);
+  --muted: var(--ink-2);
+  --faint: var(--ink-3);
+  --link: var(--accent);
+  --warning: var(--owed);
+  --accent-ink: var(--button-ink);
+  --radius-lg: var(--radius);
+  --shadow: none;
+  --shadow-md: var(--lift);
+
+  --code-bg: #f9f8f4;
+  --code-head: #f1efe8;
+  --tok-kw: #b4232f;
+  --tok-key: #2a44b0;
+  --tok-str: #1f6b45;
+  --tok-const: #7a3fb8;
+  --tok-fn: #6a4fb0;
+  --tok-attr: #2a44b0;
+  --tok-com: #7e7a6f;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #121311;
+  --sheet: #191a18;
+  --sheet-2: #1f201d;
+  --sheet-3: #272824;
+  --rule: #2d2e2a;
+  --rule-strong: #43443e;
+  --ink: #ecebe4;
+  --ink-2: #aeaca1;
+  --ink-3: #828076;
+  --accent: #93a6ff;
+  --accent-hover: #b2c0ff;
+  --accent-soft: #1f2440;
+  --accent-line: #3b4682;
+  --marker: #6b5a12;
+  --marker-soft: #3a3417;
+  --button: #ecebe4;
+  --button-hover: #ffffff;
+  --button-ink: #121311;
+  --danger: #f0848a;
+  --danger-soft: #3a1d20;
+  --ok: #7ccf9d;
+  --ok-soft: #1a2e22;
+  --owed: #e6a854;
+  --owed-soft: #352713;
+  --info: #84a8ff;
+  --processing: #b49cf0;
+  --sev-critical: #ff5a7a;
+  --sev-high: #ff8a4c;
+  --sev-medium: #e5b53a;
+  --sev-low: #7c9dff;
+  --sev-informational: #4fc2d6;
+  --cur-vnd: #f0848a;
+  --cur-eur: #93a6ff;
+  --cur-usd: #7ccf9d;
+  --shade: none;
+  --lift: 0 12px 34px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--rule);
+  --sticky-shade: rgba(0, 0, 0, 0.5);
+  --code-bg: #161715;
+  --code-head: #1d1e1b;
+  --tok-kw: #ff8f8f;
+  --tok-key: #93a6ff;
+  --tok-str: #8fd6a5;
+  --tok-const: #d1a6ff;
+  --tok-fn: #c6b3ff;
+  --tok-attr: #93a6ff;
+  --tok-com: #828076;
+}
+
+/* ---------------------------------------------------------------- Base */
+* {
+  box-sizing: border-box;
+}
+html {
+  background: var(--paper);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: "ss02" 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+svg {
+  flex: none;
+}
+img,
+video {
+  max-width: 100%;
+}
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+p {
+  margin: 0;
+}
+hr {
+  height: 1px;
+  margin: 20px 0;
+  border: 0;
+  background: var(--rule);
+}
+::selection {
+  background: var(--marker);
+  color: var(--ink);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+mark {
+  padding: 0 1px;
+  border-radius: 2px;
+  background: var(--marker);
+  color: inherit;
+}
+kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--rule-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--sheet);
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1;
+}
+code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+.num,
+.mono,
+.report-ref,
+.mono-cell {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+[hidden] {
+  display: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
+
+/* ---------------------------------------------------------------- Page frame */
+.page-wrap {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 26px var(--gutter) 64px;
+}
+.page-narrow {
+  max-width: var(--read-max);
+  margin-inline: auto;
+}
+/* The page head: where you are, the page title, and the page's own actions. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 22px;
+}
+.toolbar > div:first-child {
+  min-width: 0;
+}
+.toolbar h1,
+.page-title {
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+}
+.page-count {
+  margin-left: 4px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.toolbar p,
+.page-lede {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.toolbar-actions form {
+  display: contents;
+}
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 6px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.crumbs a {
+  color: var(--ink-2);
+}
+.crumbs a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.crumbs i {
+  color: var(--rule-strong);
+  font-style: normal;
+}
+.crumbs strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.crumbs code {
+  font-size: 12px;
+}
+.workspace {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.grid-2 > * {
+  min-width: 0;
+}
+.panel-stack {
+  display: grid;
+  gap: 20px;
+  align-content: start;
+  min-width: 0;
+}
+.section-gap {
+  margin-top: 20px;
+}
+
+/* ---------------------------------------------------------------- Sheets */
+/* A sheet is a bordered leaf on the paper. Its head carries a marginal label (small mono
+   capitals), a count or note, and at most one link. */
+.panel {
+  min-width: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  box-shadow: var(--shade);
+}
+.panel + .panel,
+.panel-stack > * + * {
+  margin-top: 0;
+}
+.workspace > .panel + .panel {
+  margin-top: 0;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.panel-head h2,
+.panel-head h3 {
+  min-width: 0;
+  font-size: 14px;
+}
+.section-label {
+  margin: 0;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+/* In a sheet head the label names the sheet, so it is ink and a touch larger than a table header. */
+.panel-head .section-label {
+  color: var(--ink);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-head .meta,
+.meta {
+  flex: none;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.panel-head a.meta {
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.panel-head a.meta:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.panel-body {
+  padding: 16px;
+}
+.panel-note {
+  padding: 10px 16px 0;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.field-hint {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------- Controls */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.button:hover {
+  border-color: var(--ink-3);
+  background: var(--sheet-2);
+}
+.button:active {
+  background: var(--sheet-3);
+}
+.button.primary {
+  border-color: var(--button);
+  background: var(--button);
+  color: var(--button-ink);
+}
+.button.primary:hover {
+  border-color: var(--button-hover);
+  background: var(--button-hover);
+}
+.button.danger {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--rule));
+  color: var(--danger);
+}
+.button.danger:hover {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+.button.danger.solid {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+.button.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+}
+.button.ghost:hover {
+  background: var(--sheet-3);
+  color: var(--ink);
+}
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.compact-button,
+.button.compact-button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+.text-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+}
+.text-action:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.text-action.danger {
+  color: var(--danger);
+}
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-2);
+}
+.icon-button:hover {
+  background: var(--sheet-3);
+  color: var(--ink);
+}
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink);
+  font-size: 13.5px;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+textarea {
+  min-height: 96px;
+  line-height: 1.55;
+  resize: vertical;
+}
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--ink-3);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  outline: none;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-3);
+}
+select {
+  padding-right: 30px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237e7a6f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 11px center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+input[type="checkbox"],
+input[type="radio"] {
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--ink);
+  box-shadow: none;
+}
+html[data-theme="dark"] input[type="checkbox"],
+html[data-theme="dark"] input[type="radio"] {
+  accent-color: var(--accent);
+}
+input[type="search"]::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* A filter or period switch: words on a ruled baseline; the current one is underlined in ink. */
+.period-tabs,
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet-2);
+}
+.period-tab,
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.period-tab:hover,
+.segment:hover {
+  color: var(--ink);
+  background: var(--sheet-3);
+}
+.period-tab.active,
+.segment.active,
+.segment[aria-current="page"] {
+  background: var(--sheet);
+  color: var(--ink);
+  box-shadow:
+    0 0 0 1px var(--rule-strong),
+    var(--shade);
+}
+.period-tab b,
+.segment b {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+/* An actions menu: a details disclosure with a floating panel, closed by app.js on outside click. */
+.menu {
+  position: relative;
+}
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.menu[open] > summary {
+  background: var(--sheet-3);
+}
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: min(280px, calc(100vw - 28px));
+  padding: 6px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  box-shadow: var(--lift);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+}
+.menu-item:hover {
+  background: var(--sheet-3);
+}
+.menu-panel form {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 10px 10px 6px;
+  border-top: 1px solid var(--rule);
+}
+.menu-panel form .button {
+  justify-self: start;
+}
+
+/* ---------------------------------------------------------------- Messages and empty states */
+.alert {
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--ink-3);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink);
+  font-size: 13px;
+}
+.alert.danger,
+.alert.error {
+  border-left-color: var(--danger);
+  background: var(--danger-soft);
+}
+.alert.success,
+.alert.ok {
+  border-left-color: var(--ok);
+  background: var(--ok-soft);
+}
+.alert.warning {
+  border-left-color: var(--owed);
+  background: var(--owed-soft);
+}
+.alert code {
+  margin: 0 2px;
+}
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 28px 24px;
+}
+.empty-state h2 {
+  font-size: 16px;
+}
+.empty-state p {
+  max-width: 60ch;
+  color: var(--ink-2);
+}
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.empty-compact,
+.empty {
+  padding: 14px 16px;
+  color: var(--ink-3);
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- Tables */
+.table-wrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+tbody tr:hover td {
+  background: var(--sheet-2);
+}
+tr.is-clickable {
+  cursor: pointer;
+}
+.strong-link {
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.strong-link:hover,
+tr.is-clickable:hover .strong-link {
+  color: var(--accent);
+}
+td small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+td small a,
+td > a:not(.strong-link) {
+  color: var(--ink-2);
+}
+td small a:hover,
+td > a:not(.strong-link):hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.mono-cell,
+.date-cell {
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.num-head,
+.amount-head {
+  text-align: right;
+}
+.num-cell,
+.amount-cell {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.is-archived {
+  color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- Severity */
+/* Signal bars: one to five, filled to the level; the word sits beside them. */
+.severity {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--ink-3);
+  font-size: 0;
+  white-space: nowrap;
+}
+.severity::before {
+  content: "";
+  width: 18px;
+  height: 12px;
+  background: currentColor;
+  -webkit-mask: var(--bars) center / 18px 12px no-repeat;
+  mask: var(--bars) center / 18px 12px no-repeat;
+}
+.severity.informational {
+  --bars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Crect x='0' y='9' width='2.6' height='3' fill='black'/%3E%3Crect x='3.85' y='7' width='2.6' height='5' fill='black' opacity='.22'/%3E%3Crect x='7.7' y='5' width='2.6' height='7' fill='black' opacity='.22'/%3E%3Crect x='11.55' y='2.5' width='2.6' height='9.5' fill='black' opacity='.22'/%3E%3Crect x='15.4' y='0' width='2.6' height='12' fill='black' opacity='.22'/%3E%3C/svg%3E");
+  color: var(--sev-informational);
+}
+.severity.low {
+  --bars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Crect x='0' y='9' width='2.6' height='3' fill='black'/%3E%3Crect x='3.85' y='7' width='2.6' height='5' fill='black'/%3E%3Crect x='7.7' y='5' width='2.6' height='7' fill='black' opacity='.22'/%3E%3Crect x='11.55' y='2.5' width='2.6' height='9.5' fill='black' opacity='.22'/%3E%3Crect x='15.4' y='0' width='2.6' height='12' fill='black' opacity='.22'/%3E%3C/svg%3E");
+  color: var(--sev-low);
+}
+.severity.medium {
+  --bars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Crect x='0' y='9' width='2.6' height='3' fill='black'/%3E%3Crect x='3.85' y='7' width='2.6' height='5' fill='black'/%3E%3Crect x='7.7' y='5' width='2.6' height='7' fill='black'/%3E%3Crect x='11.55' y='2.5' width='2.6' height='9.5' fill='black' opacity='.22'/%3E%3Crect x='15.4' y='0' width='2.6' height='12' fill='black' opacity='.22'/%3E%3C/svg%3E");
+  color: var(--sev-medium);
+}
+.severity.high {
+  --bars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Crect x='0' y='9' width='2.6' height='3' fill='black'/%3E%3Crect x='3.85' y='7' width='2.6' height='5' fill='black'/%3E%3Crect x='7.7' y='5' width='2.6' height='7' fill='black'/%3E%3Crect x='11.55' y='2.5' width='2.6' height='9.5' fill='black'/%3E%3Crect x='15.4' y='0' width='2.6' height='12' fill='black' opacity='.22'/%3E%3C/svg%3E");
+  color: var(--sev-high);
+}
+.severity.critical {
+  --bars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Crect x='0' y='9' width='2.6' height='3' fill='black'/%3E%3Crect x='3.85' y='7' width='2.6' height='5' fill='black'/%3E%3Crect x='7.7' y='5' width='2.6' height='7' fill='black'/%3E%3Crect x='11.55' y='2.5' width='2.6' height='9.5' fill='black'/%3E%3Crect x='15.4' y='0' width='2.6' height='12' fill='black'/%3E%3C/svg%3E");
+  color: var(--sev-critical);
+}
+/* Bars plus the level. In lists and tables it is a tinted tag, the loudest mark on a row. */
+.severity-label {
+  --sev: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px 0 5px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--sev) 12%, var(--sheet));
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.severity-label .severity {
+  width: 18px;
+  height: 18px;
+}
+.severity-label.sev-critical {
+  --sev: var(--sev-critical);
+}
+.severity-label.sev-high {
+  --sev: var(--sev-high);
+}
+.severity-label.sev-medium {
+  --sev: var(--sev-medium);
+}
+.severity-label.sev-low {
+  --sev: var(--sev-low);
+}
+.severity-label.sev-informational {
+  --sev: var(--sev-informational);
+}
+
+/* ---------------------------------------------------------------- Status */
+/* Where a report stands: a quiet word with a coloured dot. A draft gets a hollow dot. */
+.status {
+  --dot: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.status::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dot);
+}
+.status.submitted {
+  --dot: var(--info);
+}
+.status.processing {
+  --dot: var(--processing);
+}
+.status.done {
+  --dot: var(--ok);
+}
+.status.done.outcome-rejected,
+.status.done.outcome-out_of_scope {
+  --dot: var(--danger);
+}
+.status.done.outcome-duplicate,
+.status.done.outcome-informative {
+  --dot: var(--ink-3);
+}
+.status.is-draft::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- Money */
+/* An amount is set in mono figures with its currency code after it, small. The symbol chip
+   stays for VND, EUR and USD so a column of mixed currencies scans. */
+.money {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+.money .num {
+  color: var(--ink);
+  font-weight: 500;
+}
+.money small {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+}
+.cur-icon {
+  display: none;
+}
+.paid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.paid-badge.is-paid {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.paid-badge.is-unpaid {
+  background: var(--owed-soft);
+  color: var(--owed);
+}
+a.paid-badge:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.money-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.money-input input {
+  font-family: var(--mono);
+}
+
+/* ---------------------------------------------------------------- Tags */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--sheet-2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+a.tag:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- Bars */
+/* A labelled horizontal bar: label, bar, figure. Used for breakdowns. */
+.bars {
+  display: grid;
+  gap: 2px;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 9.5rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 30px;
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.bar-row > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar-row .bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--sheet-3);
+}
+.bar-row .bar i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--ink-2);
+}
+.bar-row b {
+  min-width: 2ch;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+}
+a.bar-row:hover {
+  background: var(--sheet-2);
+  color: var(--ink);
+}
+.bar-row.sev-critical .bar i {
+  background: var(--sev-critical);
+}
+.bar-row.sev-high .bar i {
+  background: var(--sev-high);
+}
+.bar-row.sev-medium .bar i {
+  background: var(--sev-medium);
+}
+.bar-row.sev-low .bar i {
+  background: var(--sev-low);
+}
+.bar-row.sev-informational .bar i {
+  background: var(--sev-informational);
+}
+.bar-row.status-draft .bar i {
+  background: var(--rule-strong);
+}
+.bar-row.status-submitted .bar i {
+  background: var(--info);
+}
+.bar-row.status-processing .bar i {
+  background: var(--processing);
+}
+.bar-row.status-done .bar i {
+  background: var(--ok);
+}
+
+/* ---------------------------------------------------------------- Report rows */
+/* One submission, the same in every list: title and where it went on the left, then
+   severity, status and bounty in fixed columns so the eye can run down each. */
+.vuln-list {
+  display: grid;
+}
+.vuln-list,
+.vuln-list-head {
+  --vuln-columns: minmax(0, 1fr) 108px 132px 150px;
+}
+.vuln-row {
+  display: grid;
+  grid-template-columns: var(--vuln-columns);
+  column-gap: 18px;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink);
+  transition: background-color 0.12s;
+}
+.vuln-list > .vuln-row:first-child {
+  border-top: 0;
+}
+.vuln-row:hover {
+  background: var(--sheet-2);
+}
+.panel-head.vuln-list-head {
+  display: grid;
+  grid-template-columns: var(--vuln-columns);
+  column-gap: 18px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.vuln-list-head .section-label {
+  overflow: visible;
+  color: var(--ink);
+}
+.vuln-list-head .section-label b {
+  margin-left: 6px;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.vuln-list-head .section-label a {
+  margin-left: 12px;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.vuln-list-head .section-label a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.vuln-list-head span:last-child {
+  text-align: right;
+}
+.vuln-row-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.vuln-row-main strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.vuln-row:hover .vuln-row-main strong {
+  color: var(--accent);
+}
+.vuln-row-main small {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.report-ref {
+  color: var(--ink-2);
+  font-size: 11.5px;
+}
+.vuln-row-sev,
+.vuln-row-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.vuln-row-bounty {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.vuln-row-bounty .money .num {
+  font-weight: 600;
+}
+.list-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--sheet-2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.vuln-list > .list-group:first-child {
+  border-top: 0;
+}
+.list-group b {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.list-group a {
+  margin-left: auto;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.list-group a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- Narrow screens */
+@media (max-width: 1000px) {
+  :root {
+    --gutter: 20px;
+  }
+  .grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  :root {
+    --gutter: 14px;
+  }
+  .page-wrap {
+    padding-top: 18px;
+  }
+  .toolbar {
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .toolbar h1,
+  .page-title {
+    font-size: 19px;
+  }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .panel-head {
+    padding-inline: 12px;
+  }
+  .panel-body {
+    padding: 12px;
+  }
+  /* A row wraps: the title on top, then severity, status and bounty on one line. */
+  .vuln-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 12px;
+  }
+  .vuln-row-main {
+    flex: 1 0 100%;
+  }
+  .vuln-row-bounty {
+    margin-left: auto;
+  }
+  .panel-head.vuln-list-head {
+    display: flex;
+  }
+  .vuln-list-head > span {
+    display: none;
+  }
+  .list-group {
+    padding-inline: 12px;
+  }
+  .bar-row {
+    grid-template-columns: minmax(80px, 7.5rem) minmax(0, 1fr) auto;
+  }
+}

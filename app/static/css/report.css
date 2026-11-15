@@ -1,0 +1,937 @@
+/* report: the vulnerability page and the markdown typography it shares with the editor preview.
+   See docs/DESIGN.md. The report is a document: a 860px reading column with its facts above it
+   and tracking, money and notes in a narrow side column (under the text below 1180px). */
+
+/* ---------------------------------------------------------------- Markdown */
+/* One typography for the report and the editor's live preview, so it is self-contained here. */
+.markdown-body {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+}
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.7em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: balance;
+  scroll-margin-top: calc(var(--masthead) + 16px);
+}
+/* Templates open with "# Summary" beside "## Steps to reproduce": both levels are sections. */
+.markdown-body h1 {
+  margin-top: 1.9em;
+  font-size: 1.45em;
+  letter-spacing: -0.015em;
+}
+.markdown-body h2 {
+  margin-top: 2em;
+  padding-bottom: 0.32em;
+  border-bottom: 1px solid var(--rule);
+  font-size: 1.25em;
+  letter-spacing: -0.012em;
+}
+.markdown-body h3 {
+  font-size: 1.07em;
+}
+.markdown-body h4 {
+  font-size: 1em;
+  color: var(--ink-2);
+}
+.markdown-body :is(h5, h6) {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 0.78em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.markdown-body :is(h1, h2, h3) + :is(h2, h3, h4) {
+  margin-top: 1em;
+}
+.markdown-body :is(h1, h2, h3, h4) code {
+  font-size: 0.88em;
+}
+.markdown-body :is(p, ul, ol, blockquote, dl) {
+  margin: 0.85em 0;
+}
+.markdown-body :is(ul, ol) {
+  padding-left: 1.6em;
+}
+.markdown-body li + li {
+  margin-top: 0.3em;
+}
+.markdown-body li > :is(ul, ol) {
+  margin: 0.3em 0;
+}
+.markdown-body li > p {
+  margin: 0.4em 0;
+}
+.markdown-body li::marker {
+  color: var(--ink-3);
+}
+/* Task lists: the checkbox replaces the bullet. */
+.markdown-body li:has(> input[type="checkbox"]) {
+  margin-left: -1.6em;
+  padding-left: 0.1em;
+  list-style: none;
+}
+.markdown-body li > input[type="checkbox"] {
+  margin: 0 0.55em 0 0;
+  vertical-align: -2px;
+  cursor: default;
+}
+.markdown-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.markdown-body a:hover {
+  text-decoration-color: currentColor;
+}
+.markdown-body strong {
+  font-weight: 600;
+}
+/* Inline code is tinted, not boxed, so a paragraph full of identifiers still reads as prose
+   and a span that wraps keeps a clean edge on both lines. */
+.markdown-body code {
+  padding: 0.12em 0.36em;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  font-family: var(--mono);
+  font-size: 0.87em;
+  font-variant-ligatures: none;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  overflow-wrap: anywhere;
+}
+/* Code never wraps: it scrolls inside its block, so a request line stays one line to copy.
+   The font is set on the block: a smaller font on the inner <code> alone would leave the
+   lines as tall as the surrounding prose. */
+.markdown-body pre {
+  max-width: 100%;
+  margin: 1.1em 0;
+  padding: 13px 16px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  overflow-x: auto;
+  font: 12.5px/1.65 var(--mono);
+  font-variant-ligatures: none;
+  tab-size: 4;
+  white-space: pre;
+}
+/* Always-visible thin bar: the cue that a long request line goes on. Firefox has no
+   ::-webkit-scrollbar, and in Chrome scrollbar-width would switch the styled bar off. */
+@supports not selector(::-webkit-scrollbar) {
+  .markdown-body pre {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+}
+.markdown-body pre::-webkit-scrollbar {
+  height: 8px;
+}
+.markdown-body pre::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--rule-strong);
+}
+.markdown-body pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+.markdown-body pre code {
+  padding: 0;
+  background: none;
+  font: inherit;
+  overflow-wrap: normal;
+}
+/* A decorated block (app.js decorateCode): a header with the language and Copy, then the code.
+   Copy is always visible, so it works the same with a mouse and on touch. */
+.markdown-body .code-block {
+  max-width: 100%;
+  margin: 1.2em 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  overflow: hidden;
+}
+.markdown-body .code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding: 0 4px 0 14px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--code-head);
+  line-height: 1;
+}
+.markdown-body .code-lang {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.markdown-body .code-copy {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.markdown-body .code-copy svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.markdown-body .code-copy:hover {
+  background: var(--sheet-3);
+  color: var(--ink);
+}
+.markdown-body .code-copy.is-copied {
+  color: var(--ok);
+}
+.markdown-body .code-block > pre {
+  margin: 0;
+  padding: 14px 16px 15px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  line-height: 1.62;
+}
+.code-block .tok-kw {
+  color: var(--tok-kw);
+}
+.code-block .tok-key {
+  color: var(--tok-key);
+}
+.code-block .tok-str {
+  color: var(--tok-str);
+}
+.code-block .tok-num,
+.code-block .tok-const {
+  color: var(--tok-const);
+}
+.code-block .tok-fn {
+  color: var(--tok-fn);
+}
+.code-block .tok-attr {
+  color: var(--tok-attr);
+}
+.code-block .tok-com {
+  color: var(--tok-com);
+  font-style: italic;
+}
+.markdown-body blockquote {
+  padding: 0 0 0 16px;
+  border-left: 3px solid var(--rule-strong);
+  color: var(--ink-2);
+}
+.markdown-body blockquote > :first-child {
+  margin-top: 0;
+}
+.markdown-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  vertical-align: middle;
+}
+.markdown-body video {
+  display: block;
+  max-width: 100%;
+  margin: 1.1em 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #000;
+}
+/* A wide table scrolls inside the report instead of widening the page. */
+.markdown-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  margin: 1.1em 0;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-size: 0.93em;
+  line-height: 1.5;
+}
+.markdown-body :is(th, td) {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: normal;
+}
+/* Headers stay on one line, which also keeps a narrow column from collapsing to a word per row. */
+.markdown-body th {
+  background: var(--sheet-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.markdown-body tbody tr:hover td {
+  background: none;
+}
+.markdown-body tbody tr:last-child td {
+  border-bottom: 0;
+}
+.markdown-body .align-left {
+  text-align: left;
+}
+.markdown-body .align-center {
+  text-align: center;
+}
+.markdown-body .align-right {
+  text-align: right;
+}
+.markdown-body hr {
+  height: 1px;
+  margin: 2em 0;
+  border: 0;
+  background: var(--rule);
+}
+.markdown-body .report-links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.markdown-body .report-links li + li {
+  margin-top: 0.4em;
+}
+
+/* ---------------------------------------------------------------- Page frame */
+/* Starts at the page-wrap gutter like every other page; the reading column is 860px and the
+   side column sits on the right edge. */
+.vuln-page {
+  --side: 300px;
+  --pad: 44px;
+}
+.vuln-toolbar {
+  align-items: center;
+  margin-bottom: 18px;
+}
+.vuln-toolbar .crumbs {
+  margin: 0;
+}
+.crumbs.crumbs-trail strong {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.step-links {
+  display: flex;
+  gap: 2px;
+}
+.icon-button.is-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.vuln-layout {
+  display: grid;
+  grid-template-columns: minmax(0, var(--read-max)) minmax(0, var(--side));
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+.vuln-main,
+.vuln-aside {
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- Head */
+.vuln-head {
+  display: grid;
+  gap: 12px;
+  padding: 0 0 6px;
+}
+.vuln-head h1 {
+  font-size: clamp(21px, 2vw, 26px);
+  font-weight: 600;
+  letter-spacing: -0.017em;
+  line-height: 1.3;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+/* Severity and status carry the marks; money joins them when there is any. */
+.vuln-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.vuln-money {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+.vuln-money .paid-badge {
+  align-self: center;
+}
+/* Type, CWE, CVSS and target read as one quiet line. Each fact carries a leading dot in its
+   left padding; the clip hides the one that would open a line, on any row the list wraps to. */
+.vuln-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  margin-left: -16px;
+  clip-path: inset(0 0 0 16px);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.vuln-facts > span {
+  position: relative;
+  padding-left: 16px;
+}
+.vuln-facts > span::before {
+  content: "\00b7";
+  position: absolute;
+  left: 0;
+  width: 16px;
+  color: var(--ink-3);
+  text-align: center;
+}
+.vuln-target {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.draft-notice {
+  padding: 9px 14px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet-2);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+/* A draft is unfinished: dashed pencil, like a line yet to be inked. */
+.draft-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- The report */
+.report-reader,
+.report-section {
+  padding: 28px var(--pad) 34px;
+}
+.report-reader:empty {
+  display: none;
+}
+.report-section {
+  border-top: 1px solid var(--rule);
+}
+.report-section > h2 {
+  margin: 0 0 0.6em;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.report-section .pre-line {
+  color: inherit;
+  font-size: inherit;
+}
+.pre-line {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  white-space: pre-line;
+}
+/* The outline built by initReportReaders: one quiet line above the text. */
+.report-toc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 20px;
+  padding: 12px var(--pad);
+  border-bottom: 1px solid var(--rule);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.report-toc-label {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.report-toc a {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.report-toc a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------- Attachments */
+.vuln-main #attachments .attachment-grid,
+.vuln-main #attachments .empty-compact {
+  padding-inline: var(--pad);
+}
+.vuln-main #attachments .panel-head {
+  padding-inline: var(--pad);
+}
+.attachment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.attachment {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet-2);
+}
+.attachment-preview {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--sheet);
+}
+.attachment-preview img {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  object-fit: cover;
+}
+.attachment-preview.file-type {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+.attachment-info {
+  min-width: 0;
+}
+.attachment-info strong {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachment-info small {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.attachment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+}
+.attachment-actions form {
+  display: contents;
+}
+.attachment-actions .text-action {
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.inline-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--sheet-2);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.vuln-main .inline-upload {
+  padding-inline: var(--pad);
+}
+.inline-upload label {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.inline-upload label span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 7px 10px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inline-upload label:hover span {
+  border-color: var(--accent);
+}
+.inline-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.inline-upload input:focus-visible + * {
+  outline: 2px solid var(--accent);
+}
+
+/* ---------------------------------------------------------------- Side column */
+.vuln-aside .panel-head {
+  min-height: 40px;
+}
+.vuln-aside .panel-head .paid-badge {
+  margin-left: auto;
+}
+.status-form,
+.reward-form form {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.status-form .button,
+.reward-form .button {
+  justify-self: start;
+}
+.timeline {
+  margin: 0;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+  list-style: none;
+}
+.timeline li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 16px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.timeline time,
+.timeline b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+/* The durations follow the dates as a summary, set off by one rule. */
+.timeline li:not(.timeline-gap) + .timeline-gap {
+  margin-top: 8px;
+  padding-top: 11px;
+  border-top: 1px solid var(--rule);
+}
+.bounty-total {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 14px 16px;
+}
+.bounty-total .money {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+.bounty-total .money .num {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+.bounty-total small {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.bounty-total form {
+  margin-top: 8px;
+}
+.reward-form {
+  border-top: 1px solid var(--rule);
+}
+.reward-form > summary {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 16px;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+.reward-form > summary::-webkit-details-marker {
+  display: none;
+}
+.reward-form > summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.reward-form[open] > summary {
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet-2);
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.vuln-aside .panel-note {
+  padding-bottom: 12px;
+}
+.vuln-aside .empty-compact {
+  padding: 14px 16px;
+}
+/* Facts as a ledger: marginal label, then the value. */
+.props {
+  display: grid;
+  margin: 0;
+}
+.props > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.props > div:last-child {
+  border-bottom: 0;
+}
+.props dt {
+  margin: 0;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.props dd {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.props dd.mono-cell {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+}
+/* A long value such as an endpoint gets the full row under its label. */
+.props > div.wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+.props .tag-list,
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.external-link {
+  display: inline-grid;
+  place-items: center;
+  margin-left: 6px;
+  color: var(--ink-3);
+  vertical-align: -1px;
+}
+.external-link:hover {
+  color: var(--accent);
+}
+.panel-action {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--rule);
+  border-radius: 0 0 var(--radius) var(--radius);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.panel-action:hover {
+  background: var(--sheet-2);
+}
+.note-block + .note-block {
+  border-top: 1px solid var(--rule);
+}
+.note-block h3 {
+  margin: 0 0 6px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.note-block .pre-line {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.linked-list,
+.related-list {
+  display: grid;
+}
+.linked-list a,
+.related-list > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.linked-list a:last-child,
+.related-list > a:last-child {
+  border-bottom: 0;
+}
+.linked-list a:hover,
+.related-list > a:hover {
+  background: var(--sheet-2);
+  color: var(--accent);
+}
+.related-list > a {
+  overflow-wrap: anywhere;
+}
+.linked-list a > span:first-child {
+  display: grid;
+  min-width: 0;
+}
+.linked-list a > .status {
+  flex: none;
+}
+.linked-list strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.linked-list small {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+.related-list > a.rediscover-item {
+  display: grid;
+  justify-content: stretch;
+  gap: 3px;
+}
+.rediscover-item small {
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+
+/* ---------------------------------------------------------------- Narrower screens */
+/* Below the two-column layout the side panels follow the text, in a column of their own width. */
+@media (max-width: 1180px) {
+  .vuln-layout {
+    grid-template-columns: minmax(0, var(--read-max));
+    justify-content: start;
+  }
+  .vuln-aside {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+@media (max-width: 760px) {
+  .vuln-page {
+    --pad: 16px;
+  }
+  .vuln-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .report-reader,
+  .report-section {
+    padding-top: 18px;
+    padding-bottom: 24px;
+  }
+  .report-toc {
+    gap: 2px 16px;
+    padding-block: 10px;
+  }
+  .report-toc-label {
+    flex-basis: 100%;
+  }
+  .markdown-body {
+    font-size: 14.5px;
+  }
+  .markdown-body pre,
+  .markdown-body .code-block > pre {
+    font-size: 12px;
+  }
+  /* One row: previous and next on the left, Edit and More on the right. */
+  .vuln-toolbar {
+    align-items: stretch;
+    gap: 10px;
+  }
+  .vuln-toolbar .toolbar-actions {
+    flex-wrap: nowrap;
+  }
+  .vuln-toolbar .step-links {
+    margin-right: auto;
+  }
+  .inline-upload {
+    flex-wrap: wrap;
+  }
+}

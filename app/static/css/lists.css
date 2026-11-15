@@ -1,0 +1,318 @@
+/* Vulnerability registry, Unfiled, and the tables they share. Layout only: severity, status,
+   money and tag marks come from core.css. */
+
+/* ---- List / Bounty tabs: a ruled baseline, the current view underlined in ink. */
+.tabs {
+  display: flex;
+  gap: 20px;
+  margin-bottom: -4px;
+  border-bottom: 1px solid var(--rule);
+}
+.tab {
+  margin-bottom: -1px;
+  padding: 8px 2px 9px;
+  border-bottom: 2px solid transparent;
+  color: var(--ink-3);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab.active {
+  border-bottom-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---- Unfiled notice: one quiet line with a pencil mark, not a coloured banner. */
+.notice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--marker);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+/* ---- Filters: one line, no box around it. */
+.filter-row {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.filter-row .search-field {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.filter-row .search-field input {
+  width: 100%;
+}
+.filter-row select {
+  width: auto;
+  max-width: 200px;
+}
+.status-switch .segment {
+  cursor: pointer;
+}
+.status-switch .segment:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- Vulnerability table. Fixed layout and a colgroup: column widths never depend on the
+   rows, so they do not jump when a filter changes what is listed. */
+.vulnerability-table,
+.unfiled-table {
+  table-layout: fixed;
+  min-width: 760px;
+}
+.vulnerability-table .col-title,
+.unfiled-table .col-title {
+  width: auto;
+}
+.vulnerability-table .col-program {
+  width: 168px;
+}
+.vulnerability-table .col-severity,
+.unfiled-table .col-severity {
+  width: 116px;
+}
+.vulnerability-table .col-status {
+  width: 156px;
+}
+.vulnerability-table .col-bounty {
+  width: 152px;
+}
+.vulnerability-table .col-updated,
+.unfiled-table .col-updated {
+  width: 88px;
+}
+.vulnerability-table td,
+.unfiled-table td {
+  padding-block: 11px;
+}
+.vulnerability-table th:first-child,
+.vulnerability-table td:first-child,
+.unfiled-table th:first-child,
+.unfiled-table td:first-child {
+  padding-left: 16px;
+}
+.vulnerability-table th:last-child,
+.vulnerability-table td:last-child {
+  padding-right: 16px;
+}
+.title-cell .strong-link {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  line-height: 1.35;
+}
+.title-cell small,
+.unfiled-table td small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vulnerability-table .col-program {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vulnerability-table .col-program a {
+  color: var(--ink-2);
+}
+.row-program {
+  display: none;
+}
+.bounty-cell {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  white-space: nowrap;
+}
+.vulnerability-table .col-updated,
+.unfiled-table .col-updated {
+  padding-right: 16px;
+}
+
+/* ---- Unfiled. */
+.unfiled-table .col-file {
+  width: 300px;
+}
+.unfiled-table .col-delete {
+  width: 76px;
+}
+.unfiled-table .row-title {
+  font-weight: 600;
+}
+.file-form {
+  display: flex;
+  gap: 6px;
+}
+.file-form select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.delete-cell {
+  text-align: right;
+}
+.delete-cell form {
+  display: inline;
+}
+.draft-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+/* ---- Rediscover list (shown on report pages). */
+.related-list {
+  display: grid;
+}
+.rediscover-item {
+  display: grid;
+  gap: 2px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+.rediscover-item:first-of-type {
+  margin-top: 10px;
+}
+.rediscover-item:hover {
+  background: var(--sheet-2);
+  color: var(--accent);
+}
+.rediscover-item small {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ---- Medium screens: the program moves under the title so the title keeps room. */
+@media (max-width: 1000px) {
+  .vulnerability-table {
+    min-width: 720px;
+  }
+  .vulnerability-table .col-program,
+  .vulnerability-table col.col-program {
+    display: none;
+  }
+  .vulnerability-table .col-status {
+    width: 144px;
+  }
+  .vulnerability-table .col-bounty {
+    width: 132px;
+  }
+  .row-program {
+    display: inline;
+  }
+}
+
+/* ---- Narrow screens: the date column goes too; what is left
+   still scrolls inside its own wrapper if it must. */
+@media (max-width: 760px) {
+  .tabs {
+    margin-bottom: 0;
+  }
+  .filter-row .search-field {
+    flex-basis: 100%;
+  }
+  .filter-row select {
+    flex: 1 1 140px;
+    max-width: none;
+  }
+  .status-switch {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  /* Each row becomes a small entry like the dashboard's: title and "#ID · type · program",
+     then severity, status and bounty on one wrapping line. No sideways scroll. */
+  .vulnerability-table,
+  .vulnerability-table tbody {
+    display: block;
+    min-width: 0;
+  }
+  .vulnerability-table colgroup,
+  .vulnerability-table thead,
+  .vulnerability-table .col-updated {
+    display: none;
+  }
+  .vulnerability-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .vulnerability-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  /* Not "tr:last-child td" here: its higher specificity would undo the hidden columns on the last row. */
+  .vulnerability-table td {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+  }
+  .vulnerability-table tbody tr:hover {
+    background: var(--sheet-2);
+  }
+  .vulnerability-table td:first-child,
+  .vulnerability-table td:last-child {
+    padding: 0;
+  }
+  .vulnerability-table td:empty {
+    display: none;
+  }
+  .vulnerability-table .title-cell {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .vulnerability-table .amount-cell {
+    margin-left: auto;
+  }
+  .unfiled-table {
+    min-width: 720px;
+  }
+}
+
+/* ---- A note above a table or empty state: rule it off from what follows, align to the sheet. */
+.panel-note + .table-wrap {
+  margin-top: 10px;
+  border-top: 1px solid var(--rule);
+}
+.panel-note + .empty-state {
+  padding-top: 20px;
+  padding-left: 16px;
+}
+.panel-note + .empty-compact {
+  padding-top: 8px;
+}

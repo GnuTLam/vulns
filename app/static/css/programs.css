@@ -1,0 +1,177 @@
+/* programs: area stylesheet, see docs/DESIGN.md. */
+
+/* ---------------------------------------------------------------- Index */
+/* One ruled row per program; money columns right-aligned, stacked per currency. */
+.program-table td {
+  vertical-align: top;
+}
+.program-table .platform-cell {
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.program-table .amount-line {
+  display: block;
+  white-space: nowrap;
+}
+.program-table .amount-line.owed .money .num {
+  color: var(--owed);
+}
+.program-table .nil {
+  color: var(--ink-3);
+}
+/* Archived rows read quiet: lighter ink, no emphasis on the name. */
+.program-table tr.is-archived .strong-link,
+.program-table tr.is-archived .platform-cell,
+.program-table tr.is-archived .money .num {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.program-table tr.is-archived .amount-line.owed .money .num {
+  color: var(--ink-3);
+}
+
+/* ---------------------------------------------------------------- Program page */
+.program-head {
+  margin-bottom: 16px;
+}
+.program-head h1 {
+  overflow-wrap: anywhere;
+}
+.program-head .archived-mark {
+  padding: 0 5px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.program-head.is-archived h1 {
+  color: var(--ink-2);
+}
+.program-ident {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  font-size: 12.5px;
+}
+.program-ident .mono {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.program-ident .external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 0;
+  max-width: 100%;
+}
+.program-ident .external-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.program-ident .external-link svg {
+  flex: none;
+}
+
+/* The program's actions menu (core .menu): buttons fill the panel. */
+.program-head .menu-panel {
+  gap: 6px;
+}
+.program-head .menu-panel form {
+  display: contents;
+}
+.program-head .menu-panel .button {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* Figures: one ruled line under the head, not a row of tiles. */
+.program-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 0;
+  padding: 10px 0 14px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.program-figures > div {
+  min-width: 0;
+}
+.program-figures dt {
+  margin: 0 0 3px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.program-figures dt .text-action {
+  margin-left: 6px;
+  font-family: var(--font);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.program-figures dd {
+  margin: 0;
+  font-size: 13px;
+}
+.program-figures dd.num {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.program-figures .money-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.program-figures .money-line + .money-line {
+  margin-top: 4px;
+}
+.program-figures .money-sum {
+  font-size: 14px;
+}
+.program-figures .nil {
+  color: var(--ink-3);
+}
+.figure-money {
+  flex: 1 1 260px;
+}
+
+/* Notes are secondary: plain pencil text. */
+.pre-line {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  white-space: pre-line;
+}
+@media (max-width: 760px) {
+  .program-figures {
+    gap: 10px 22px;
+  }
+}
+
+/* Phones: keep name, reports and money; platform moves under the name. */
+.plat-inline,
+.open-inline {
+  display: none;
+}
+@media (max-width: 640px) {
+  .program-table .col-wide {
+    display: none;
+  }
+  .plat-inline,
+  .open-inline {
+    display: inline;
+  }
+}

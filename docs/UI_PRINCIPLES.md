@@ -1,6 +1,6 @@
 # UI principles
 
-VulnS is an operator workspace. Every screen should answer one of three questions: what needs action, what changed, and where the evidence is.
+VulnS is an operator workspace. Every screen should answer one of three questions: what needs action, what changed, and where the evidence is. The visual language (type, colour, components) is in [DESIGN.md](DESIGN.md).
 
 ## Hierarchy
 
@@ -37,7 +37,7 @@ VulnS is an operator workspace. Every screen should answer one of three question
 - Charts repeat their values as text: totals above the bars, months named.
 - Group work by reason: the group heading states the status once, rows only call out exceptions.
 - A submission in any list reads the same: the title, then `#ID · program · Submitted date`, then severity, status and bounty in fixed columns. The bounty column is the rightmost; an empty cell means no bounty is due.
-- Severity is the louder mark (a tinted pill with its bars); status is a word with a coloured dot. Paid amounts are plain; only *Unpaid* is flagged, with the same badge everywhere.
+- Severity is the louder mark (a tinted tag with its bars); status is a word with a coloured dot. Paid amounts are plain; only *Unpaid* is flagged, with the same badge everywhere.
 - No derived ages or counters on rows ("41 days waiting"): order the list instead, and show the dates the hunter entered.
 - An unsent draft is shown as *Draft* wherever a status appears, and counted apart from submitted reports.
 - Empty states are explicit. An empty workspace shows a single getting-started panel instead of zeros.
@@ -59,3 +59,11 @@ A UI change is complete when:
 - desktop and 375 px mobile layouts have no horizontal overflow in both themes;
 - text tokens meet WCAG AA contrast (covered by a test);
 - the browser console has no errors and the test suite passes.
+
+## Money
+
+- One rule for what is owed, everywhere (`Finding.is_owed`): accepted or awarded, not received, not a draft. An owed report with no amount recorded is still owed; it is counted and flagged *Unpaid*, never shown as 0.
+- Per currency, **Received + Owed = Total**, and the dashboard, the bounty tab and the program pages show the same three figures with the same words. Currencies are never added together.
+- A reward counts towards the day it was awarded (then paid, resolved, triaged, submitted). Charts print exact amounts, and their bars add up to the total above them.
+- The bounty tab defaults to all time, the dashboard's scope; a year is a filter, and money still owed is listed whatever the period.
+- Open means sent and not closed; drafts are never open, on any page.

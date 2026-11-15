@@ -103,15 +103,20 @@ templates.env.globals["report_url"] = report_url
 templates.env.globals["report_edit_url"] = report_edit_url
 
 
+# Stylesheets in cascade order: the shared foundation, the masthead, then one file per area.
+STYLESHEETS = ("core", "shell", "lists", "dashboard", "money", "report", "editor", "programs", "search", "tags")
+
+
 def _asset_hash() -> str:
     """Appended to asset URLs so a deploy never pairs new HTML with cached CSS or JS."""
     digest = hashlib.sha256()
-    for name in ("app.css", "app.js"):
-        digest.update((STATIC_DIR / name).read_bytes())
+    for path in [*(STATIC_DIR / "css" / f"{name}.css" for name in STYLESHEETS), STATIC_DIR / "app.js"]:
+        digest.update(path.read_bytes())
     return digest.hexdigest()[:12]
 
 
 ASSET_HASH = _asset_hash()
+templates.env.globals["stylesheets"] = STYLESHEETS
 
 # Evidence types the browser may display; everything else is downloaded. SVG can carry script.
 SAFE_INLINE_TYPES = {

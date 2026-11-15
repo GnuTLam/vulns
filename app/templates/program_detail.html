@@ -2,11 +2,26 @@
 {% import "_macros.html" as ui with context %}
 {% block title %}{{ program.name }}{% endblock %}
 {% block content %}
-  <div class="toolbar">
-    <div class="crumbs">
-      <a href="/programs">{{ tr.programs }}</a><i>/</i><strong>{{ program.name }}</strong>
-      <code>{{ program.platform|upper or 'INDEPENDENT' }}</code>
-      {% if program.archived %}<span class="draft-badge">{{ tr.archived|upper }}</span>{% endif %}
+  <div class="toolbar program-head{{ ' is-archived' if program.archived }}">
+    <div>
+      <div class="crumbs">
+        <a href="/programs">{{ tr.programs }}</a><i>/</i><span>{{ program.platform or 'Independent' }}</span>
+        {% if program.archived %}<span class="archived-mark">{{ tr.archived }}</span>{% endif %}
+      </div>
+      <h1>{{ program.name }}</h1>
+      {% if program.handle or program.url %}
+        <p class="program-ident">
+          {%- if program.handle %}<span class="mono">{{ program.handle }}</span>{% endif -%}
+          {%- if program.url %}
+            <a class="text-action external-link" href="{{ program.url }}" target="_blank" rel="noreferrer noopener">
+              <span>{{ program.url }}</span>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9" />
+              </svg>
+            </a>
+          {%- endif %}
+        </p>
+      {% endif %}
     </div>
     <div class="toolbar-actions">
       {% if not program.archived %}
@@ -32,40 +47,43 @@
     </div>
   </div>
   <div class="workspace">
-    <div class="facts">
+    <dl class="program-figures">
       <div>
-        <p class="k">{{ tr.findings }}</p>
-        <p class="v num">{{ counts.total }}</p>
+        <dt>{{ tr.reports }}</dt>
+        <dd class="num">{{ counts.total }}</dd>
       </div>
       <div>
-        <p class="k">{{ tr.open }}</p>
-        <p class="v num">{{ counts.open }}</p>
+        <dt>{{ tr.open }}</dt>
+        <dd class="num">{{ counts.open }}</dd>
       </div>
       <div>
-        <p class="k">{{ tr.accepted }}</p>
-        <p class="v num">{{ counts.accepted }}</p>
+        <dt>{{ tr.accepted }}</dt>
+        <dd class="num">{{ counts.accepted }}</dd>
       </div>
-      <div class="facts-earned">
-        <p class="k">{{ tr.earnings }}</p>
+      <div>
+        <dt>{{ tr.median_triage }}</dt>
+        <dd class="num">{{ metrics.median_triage_days if metrics.median_triage_days is not none else '—' }}</dd>
+      </div>
+      <div class="figure-money">
+        <dt>{{ tr.earnings }} <a class="text-action" href="/findings?tab=bounty&amp;program_id={{ program.id }}">{{ tr.bounty_stats }}</a></dt>
         {% for row in earnings %}
-          <p class="v">
-            {{ ui.money(row.total, row.currency) }}
-            {% if row.unpaid %}<span class="paid-badge is-unpaid">{{ tr.unpaid }} {{ row.unpaid|money(row.currency) }}</span>{% endif %}
-          </p>
+          <dd class="money-line">
+            <span class="money-sum">{{ ui.money(row.total, row.currency) }}</span>
+            {% if row.paid %}<span class="paid-badge is-paid">{{ tr.received }} {{ row.paid|money(row.currency) }}</span>{% endif %}
+            {% if row.unpaid %}<span class="paid-badge is-unpaid">{{ tr.owed }} {{ row.unpaid|money(row.currency) }}</span>{% endif %}
+          </dd>
         {% else %}
-          <p class="v muted">{{ tr.not_rewarded_yet }}</p>
+          {% if not owed.unrecorded %}<dd class="nil">{{ tr.not_rewarded_yet }}</dd>{% endif %}
         {% endfor %}
-        <a class="text-action" href="/findings?tab=bounty&amp;program_id={{ program.id }}">{{ tr.bounty_stats }}</a>
+        {% if owed.unrecorded %}
+          <dd class="money-line"><span class="paid-badge is-unpaid">{{ tr.owed_unrecorded_one if owed.unrecorded == 1 else tr.owed_unrecorded|format(count=owed.unrecorded) }}</span></dd>
+        {% endif %}
       </div>
-      <div>
-        <p class="k">{{ tr.median_triage }}</p>
-        <p class="v num">{{ metrics.median_triage_days if metrics.median_triage_days is not none else '—' }}</p>
-      </div>
-    </div>
+    </dl>
 
-    <section class="panel section-gap">
+    <section class="panel">
       <div class="panel-head">
-        <p class="section-label">{{ tr.findings }}</p>
+        <p class="section-label">{{ tr.reports }}</p>
         <span class="meta">{{ counts.total }}</span>
       </div>
       {% if program.findings %}
@@ -82,38 +100,13 @@
       {% endif %}
     </section>
 
-    <div class="panel-stack section-gap">
-      {% if program.url or program.handle or program.notes %}
+    <div class="panel-stack">
+      {% if program.notes %}
         <section class="panel">
           <div class="panel-head">
             <p class="section-label">{{ tr.notes }}</p>
           </div>
-          {% if program.url or program.handle %}
-            <dl class="props">
-              {% if program.url %}
-                <div>
-                  <dt>{{ tr.url }}</dt>
-                  <dd>
-                    <a class="text-action external-link" href="{{ program.url }}" target="_blank" rel="noreferrer noopener">
-                      <span>{{ program.url }}</span>
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9" />
-                      </svg>
-                    </a>
-                  </dd>
-                </div>
-              {% endif %}
-              {% if program.handle %}
-                <div>
-                  <dt>{{ tr.handle }}</dt>
-                  <dd class="mono-cell">{{ program.handle }}</dd>
-                </div>
-              {% endif %}
-            </dl>
-          {% endif %}
-          {% if program.notes %}
-            <div class="panel-body"><p class="pre-line">{{ program.notes }}</p></div>
-          {% endif %}
+          <div class="panel-body"><p class="pre-line">{{ program.notes }}</p></div>
         </section>
       {% endif %}
       {% if rediscover %}

@@ -1,0 +1,1001 @@
+/* Writing and forms: the vulnerability editor, Markdown import, program form, AI export,
+   sign-in, 404 and the confirm dialog. Built on the core.css tokens and components. */
+
+/* ---------------------------------------------------------------- Shared form bits */
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.check-row input {
+  flex: none;
+}
+.field-block {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+.field-block > label {
+  margin: 0;
+}
+.field-block .field-hint {
+  line-height: 1.45;
+}
+.field-hint-spaced {
+  display: block;
+  margin: -6px 0 14px;
+  line-height: 1.45;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+.form-grid > label {
+  min-width: 0;
+}
+.form-grid .field-hint {
+  font-weight: 400;
+}
+.span-2 {
+  grid-column: span 2;
+}
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--sheet-2);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* Drop zone and the files chosen or attached (editor evidence, Markdown import). */
+.drop-zone {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet-2);
+  cursor: pointer;
+  font-weight: 400;
+  transition:
+    border-color 0.12s,
+    background-color 0.12s;
+}
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.drop-zone:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.drop-zone strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.drop-zone span {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.drop-zone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.pending-files,
+.attached-files {
+  display: grid;
+}
+.pending-file,
+.attached-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+}
+.pending-file img,
+.pending-file video,
+.attached-file img,
+.attached-file video,
+.file-type {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 32px;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--sheet-2);
+  color: var(--ink-3);
+  font: 500 10px/1 var(--mono);
+  letter-spacing: 0.04em;
+}
+.pending-file > div:not(.file-type),
+.attached-file > div:not(.file-type) {
+  flex: 1;
+  min-width: 0;
+}
+.pending-file strong,
+.attached-file strong {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pending-file small,
+.attached-file small {
+  display: block;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+/* ---------------------------------------------------------------- Vulnerability editor */
+.report-editor {
+  display: block;
+}
+.draft-notice {
+  margin-bottom: 14px;
+  padding: 9px 14px;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.shared-notice {
+  margin-bottom: 14px;
+}
+.shared-notice a {
+  color: var(--accent);
+  font-weight: 500;
+}
+.shared-notice a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Command bar: the one place Save lives. It sticks under the masthead, so it is always in reach. */
+.editor-commandbar {
+  position: sticky;
+  top: var(--masthead);
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  margin: -26px 0 18px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  /* Paper spills into the gutters so scrolling text is covered, while the rule stays on the content edges. */
+  box-shadow: 0 0 0 100vmax var(--paper);
+  clip-path: inset(0 -100vmax);
+}
+.editor-commandbar > div {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 14px;
+  min-width: 0;
+}
+.editor-commandbar > div strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.back-link:hover {
+  color: var(--accent);
+}
+.editor-status {
+  flex: none;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.editor-status.dirty {
+  color: var(--owed);
+}
+.editor-evidence-link {
+  flex: none;
+}
+
+.report-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+.report-workspace {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.report-metadata {
+  grid-column: 2;
+  grid-row: 1;
+  position: sticky;
+  top: calc(var(--masthead) + 66px);
+  max-height: calc(100vh - var(--masthead) - 82px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 0 14px 2px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+}
+.metadata-heading {
+  margin: 0 -14px 14px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 10px;
+}
+.metadata-grid > .field-block {
+  min-width: 0;
+}
+.report-metadata label {
+  font-size: 12px;
+}
+.report-metadata textarea {
+  min-height: 72px;
+}
+
+/* Collapsible groups: ruled sections of one sheet, not boxes inside a box. */
+.metadata-group {
+  margin: 0 -14px;
+  padding: 0 14px;
+  border-top: 1px solid var(--rule);
+}
+.metadata-group > summary {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  padding: 11px 22px 11px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.metadata-group > summary::-webkit-details-marker {
+  display: none;
+}
+.metadata-group > summary::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 17px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg);
+  transition: transform 0.12s;
+}
+.metadata-group[open] > summary::after {
+  top: 19px;
+  transform: rotate(225deg);
+}
+.metadata-group > summary:hover .section-label {
+  color: var(--ink);
+}
+.metadata-group[open] > summary {
+  padding-bottom: 12px;
+}
+.metadata-group-heading small {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.metadata-group[open] .metadata-group-heading small {
+  display: none;
+}
+.metadata-group[open] {
+  padding-bottom: 2px;
+}
+
+/* The title is the first thing written: large, on a rule, no box. */
+.report-title {
+  margin-bottom: 14px;
+}
+.report-title input {
+  height: 52px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+.report-title input:hover {
+  border-bottom-color: var(--ink-3);
+}
+.report-title input:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
+}
+.report-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+}
+.template-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.template-control select {
+  width: auto;
+  min-width: 0;
+  max-width: 220px;
+}
+
+/* One sheet: tab row on top, writing surface below. */
+.editor-sheet {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  min-width: 0;
+}
+.editor-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet-2);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.editor-tab {
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.12s;
+}
+.editor-tab:hover {
+  color: var(--ink);
+}
+.editor-tab.active {
+  border-bottom-color: var(--ink);
+  color: var(--ink);
+}
+.editor-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--ink-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.editor-pane {
+  display: none;
+  min-height: max(420px, calc(100vh - 330px));
+  min-width: 0;
+}
+.editor-pane.active {
+  display: block;
+}
+.markdown-input {
+  display: block;
+  width: 100%;
+  min-height: max(420px, calc(100vh - 330px));
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: transparent;
+  box-shadow: none;
+  resize: vertical;
+  font: 13.5px/1.75 var(--mono);
+  tab-size: 2;
+}
+.markdown-input:hover,
+.markdown-input:focus {
+  box-shadow: none;
+}
+.editor-pane.markdown-body {
+  padding: 22px 26px;
+  overflow-x: auto;
+}
+.preview-placeholder {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+/* Evidence */
+.attachment-manager {
+  margin-top: 20px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  scroll-margin-top: calc(var(--masthead) + 72px);
+}
+.attachment-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.attachment-heading > span {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.attachment-manager .drop-zone {
+  margin: 16px;
+}
+.attachment-manager .pending-files:empty {
+  display: none;
+}
+.attachment-manager .pending-file,
+.attachment-manager .attached-file {
+  padding-inline: 16px;
+}
+
+/* Currency symbol joined to the amount. */
+.money-input {
+  display: flex;
+  align-items: stretch;
+}
+.money-input .cur-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 38px;
+  padding: 0 6px;
+  border: 1px solid var(--rule-strong);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--sheet-2);
+  color: var(--ink-2);
+  font: normal 500 12px/1 var(--mono);
+}
+.money-input input {
+  min-width: 0;
+}
+.money-input .cur-icon + input {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* Tag entry (data-tag-input is enhanced by app.js) */
+.tag-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  cursor: text;
+}
+.tag-field:hover {
+  border-color: var(--ink-3);
+}
+.tag-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.tag-chips {
+  display: contents;
+}
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  height: 22px;
+  padding: 0 2px 0 7px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--sheet-2);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+.tag-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 14px;
+  line-height: 1;
+}
+.tag-chip button:hover {
+  background: var(--sheet-3);
+  color: var(--ink);
+}
+.tag-field .tag-entry {
+  flex: 1 1 90px;
+  width: auto;
+  min-width: 90px;
+  min-height: 0;
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Related reports: suggestions as ruled rows with accept / dismiss */
+.relate-block {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+.relate-block > small {
+  color: var(--ink-3);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.relate-chips {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+.relate-empty {
+  padding: 8px 10px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.relate-chip {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 7px 8px 7px 10px;
+  border-top: 1px solid var(--rule);
+}
+.relate-chip:first-child {
+  border-top: 0;
+}
+.relate-chip-title {
+  flex: 1 1 100%;
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.relate-chip-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+.relate-chip-accept,
+.relate-chip-dismiss {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+.relate-chip-accept {
+  background: var(--button);
+  color: var(--button-ink);
+}
+.relate-chip-accept:hover {
+  background: var(--button-hover);
+}
+.relate-chip-dismiss {
+  background: transparent;
+  color: var(--ink-2);
+}
+.relate-chip-dismiss:hover {
+  background: var(--sheet-3);
+  color: var(--ink);
+}
+.relate-fallback > summary {
+  color: var(--accent);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.relate-fallback select {
+  margin-top: 8px;
+}
+
+/* ---------------------------------------------------------------- Program form, import, export */
+.structured-form {
+  max-width: 760px;
+}
+.import-layout {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+.import-form .alert {
+  margin-bottom: 14px;
+}
+.import-drop {
+  justify-items: center;
+  padding: 26px 16px;
+  text-align: center;
+}
+.import-form .pending-files {
+  margin-top: 4px;
+}
+.import-form .pending-file:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+.import-checklist {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.import-checklist li {
+  overflow-wrap: anywhere;
+}
+.import-guide-subhead {
+  border-top: 1px solid var(--rule);
+}
+.import-sample {
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+}
+.import-sample code {
+  color: var(--ink);
+  font: 12px/1.6 var(--mono);
+}
+
+/* Counts as a single ruled line, like the registry switch. */
+.export-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.export-stats span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.export-stats b {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.export-page .section-gap {
+  margin-top: 0;
+}
+.export-page .linked-list {
+  display: grid;
+}
+.export-page .linked-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--rule);
+}
+.export-page .panel-head + .linked-list a:first-child,
+.export-page .panel-note + .linked-list a:first-child {
+  border-top: 0;
+}
+.export-page .linked-list a:hover {
+  background: var(--sheet-2);
+}
+.export-page .linked-list a > span {
+  display: grid;
+  min-width: 0;
+}
+.export-page .linked-list strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.export-page .linked-list small {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.export-page .panel-note {
+  padding-bottom: 10px;
+}
+
+/* ---------------------------------------------------------------- Sign-in, 404, dialog */
+.login-body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+.signin {
+  display: grid;
+  gap: 20px;
+  width: min(360px, 100%);
+  padding: 28px 24px 24px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+}
+.signin .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: center;
+  color: var(--ink);
+}
+/* Same mark as the masthead (shell.css is not loaded here). */
+.signin .brand-mark {
+  position: relative;
+  width: 22px;
+  height: 27px;
+  border-radius: 2px;
+  background: var(--ink);
+  clip-path: polygon(0 0, 62% 0, 100% 30%, 100% 100%, 0 100%);
+}
+.signin .brand-mark::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 6px;
+  height: 2px;
+  background: var(--marker);
+  box-shadow: 0 -5px 0 color-mix(in srgb, var(--paper) 70%, transparent);
+}
+.signin .brand-text {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.signin .stack {
+  display: grid;
+  gap: 14px;
+}
+.signin .stack .button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 4px;
+}
+
+.not-found {
+  justify-items: center;
+  padding: 72px 16px;
+  text-align: center;
+}
+.not-found h1 {
+  font-size: 18px;
+}
+.not-found .empty-actions {
+  justify-content: center;
+}
+.not-found-code {
+  color: var(--ink-3);
+  font-family: var(--mono);
+  font-size: 44px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.confirm-dialog {
+  width: min(420px, calc(100% - 32px));
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink);
+  box-shadow: var(--lift);
+}
+.confirm-dialog::backdrop {
+  background: rgba(20, 19, 16, 0.45);
+}
+.confirm-dialog form {
+  padding: 20px 20px 16px;
+}
+.confirm-dialog h2 {
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+.confirm-dialog p {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* ---------------------------------------------------------------- Narrower screens */
+@media (max-width: 1100px) {
+  .report-layout {
+    grid-template-columns: minmax(0, 1fr) 312px;
+    gap: 16px;
+  }
+  .import-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 1000px) {
+  .editor-commandbar {
+    margin-top: -20px;
+  }
+}
+@media (max-width: 900px) {
+  /* One column: the title, then the properties of a new report, or after the text of an existing one. */
+  .report-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .report-workspace {
+    display: contents;
+  }
+  .report-workspace > *,
+  .report-metadata {
+    width: 100%;
+    order: 2;
+  }
+  .report-workspace > .report-title {
+    order: 0;
+  }
+  .report-editor.is-creating .report-metadata {
+    order: 1;
+    margin: 0 0 16px;
+  }
+  .report-editor.is-editing .report-metadata {
+    order: 3;
+    margin-top: 20px;
+  }
+  .report-metadata {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .editor-pane,
+  .markdown-input {
+    min-height: max(360px, 55vh);
+  }
+}
+@media (max-width: 760px) {
+  .editor-commandbar {
+    margin-top: -14px;
+    padding: 8px 0;
+  }
+  .editor-commandbar > div strong {
+    display: none;
+  }
+  .editor-commandbar > div {
+    gap: 10px;
+  }
+  .editor-status {
+    margin-left: auto;
+  }
+  .report-title input {
+    height: 46px;
+    font-size: 20px;
+  }
+  .editor-hint {
+    display: none;
+  }
+  .editor-pane.markdown-body {
+    padding: 16px;
+  }
+  .markdown-input {
+    padding: 14px;
+    font-size: 13px;
+  }
+  .template-control {
+    flex: 1 1 100%;
+  }
+  .template-control select {
+    flex: 1;
+    max-width: none;
+  }
+  .attachment-manager .drop-zone {
+    margin: 12px;
+  }
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .span-2 {
+    grid-column: auto;
+  }
+  .form-actions {
+    justify-content: stretch;
+  }
+  .form-actions .button {
+    flex: 1;
+  }
+  .export-page .grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .editor-evidence-link {
+    display: none;
+  }
+  .signin {
+    padding: 24px 18px 20px;
+  }
+  .confirm-dialog .button {
+    flex: 1;
+  }
+}
